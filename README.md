@@ -22,10 +22,11 @@ as patch 0003, for reading.
 | Bluetooth | works; set the address, see below |
 | Speakers (2x WSA883x), 4 DMICs | work; EQ/limiter and echo cancel in `userspace/audio`. Headset jack not verified |
 | Camera (OV02C10, 2 MP) | works through libcamera; needs `userspace/camera` |
-| USB-C charging | works with `userspace/charging/book4-pd-charge` |
+| USB-C charging | Input-limit selection corrected in source. Hardware validation pending |
 | Battery, AC, EC temperatures, fan level | `driver/samsung-galaxybook-ec` |
 | Memory under load | freeze fixes: `patches/0004`, MGLRU and zram (`docs/memory.md`); tested for hours, not yet days |
-| Suspend | not verified |
+| Suspend | Reported resume success and overnight battery depletion |
+| Hibernate | In-place `test_resume` succeeds. Cold resume resets |
 | HDMI out, SD card, second USB2 port | not wired / not tested |
 | Video decode (iris) | driver built, DT node left disabled |
 | RTC | never probes; time is stale until NTP |
@@ -55,6 +56,22 @@ Install `arch/arm64/boot/vmlinuz.efi`, the DTB and an initramfs on the ESP and
 add a systemd-boot entry (`boot/loader-entry-example.conf`). Boot with
 `efi=noruntime`: there are no EFI variables at runtime, so on the internal disk
 systemd-boot must live at `EFI/Microsoft/Boot/bootmgfw.efi`.
+
+## Suspend and hibernate
+
+- Suspend: reported overnight battery depletion. Do not leave suspended on battery.
+- Hibernate: `test_resume` returned to a working session. Cold resume produced a dark screen and reset.
+- Daily use: `systemctl poweroff`. Do not enable hibernate.
+- Optional lid-close poweroff configuration. Save work first:
+
+```sh
+sudo mkdir -p /etc/systemd/logind.conf.d
+printf '[Login]\nHandleLidSwitch=poweroff\nHandleLidSwitchExternalPower=poweroff\nHandleLidSwitchDocked=poweroff\n' | sudo tee /etc/systemd/logind.conf.d/10-lid.conf
+```
+
+- Takes effect on the next reboot.
+- Desktop lid inhibitors can override logind. Verify the actual lid action.
+- Shutdown power consumption has not been measured.
 
 ## Prebuilt snapshot
 
@@ -118,15 +135,15 @@ builds it. Rebuild the initramfs after installing firmware: the `FILES=` line in
 - `driver/samsung-galaxybook-ec/`: ENE KB9058 EC over I2C: battery, AC,
   three temperature sensors, fan level. Read-only by default. GPL-2.0. Builds
   out-of-tree or with dkms.
-- `userspace/charging/`: the EC does not run charging on this board; the
-  S2MM006 PD controller and the ISL9241 charger are driven directly by Windows'
-  EmuEc.sys. `book4-pd-charge` does the same three things (close the consumer
-  switch, request the 20 V PD contract, program the charger from the battery's
-  own request). Without it the machine trickle-charges at ~300 mA and only
-  charges after a reboot. Read `reports/ec/07-pdic-s2mm006.md` first if you
-  touch it: two PDIC writes will cut power to the machine. `i2c-wake/` is a
-  runtime overlay that enables the three I2C buses on a DTB that lacks them;
-  the daemon loads it automatically when needed.
+- `userspace/charging/`: direct S2MM006 PD controller and ISL9241 charger access.
+  - Daemon operations: close consumer switch, request higher PD rail, program charger.
+  - Switch control, PD negotiation and input-limit selection exclude provider ports.
+  - One open input is selected for re-arming. Multiple closed inputs defer PD and limit changes.
+  - Input limit uses the supplying port's last Request and its selected source PDO.
+  - Current 20 V / 3 A setup retains the 3000 register target.
+  - Contract acceptance, register scaling and ownership still require hardware validation.
+  - PDIC notes: `reports/ec/07-pdic-s2mm006.md`. Bad PD transmission reportedly caused a reset.
+  - `i2c-wake/`: automatically loaded runtime overlay for DTBs missing the three I2C buses.
 - `userspace/memory/`: zram swap (half of RAM, zstd) plus an earlyoom
   policy as the last-ditch guard. Comments in the files say why systemd-oomd
   is not used here. `zram-mod/build.sh` builds zram out of tree for a kernel

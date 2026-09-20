@@ -87,6 +87,9 @@ build() {
     # arch-meson's --auto-features=enabled makes the RPi NN AWB's tensorflow-lite
     # dependency hard; libpisp on ALARM pulls that pipeline in. Not needed.
     -D rpi-awb-nn=disabled
+    # libcamera 0.7.2 defaults to -Werror and GCC 16 turns a shared_ptr/array-bounds
+    # false positive in base/log.cpp into a failure.
+    -D werror=false
   )
 
   arch-meson $pkgbase build "${meson_options[@]}"
