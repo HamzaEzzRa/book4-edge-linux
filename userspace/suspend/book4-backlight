@@ -1,0 +1,20 @@
+#!/bin/sh
+# systemd-backlight runs at boot only. Keep sleep state in root-owned /run.
+B=/sys/class/backlight/backlight/brightness
+S=/run/book4-backlight
+case "$1/$2" in
+	pre/*)
+		rm -f "$S"
+		v=$(cat "$B") || exit 0
+		case "$v" in ''|*[!0-9]*) exit 0;; esac
+		printf '%s\n' "$v" > "$S"
+		;;
+	post/*)
+		[ -f "$S" ] || exit 0
+		v=$(cat "$S") || exit 0
+		rm -f "$S"
+		case "$v" in ''|*[!0-9]*) exit 0;; esac
+		sleep 2
+		printf '%s\n' "$v" > "$B"
+		;;
+esac

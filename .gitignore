@@ -1,0 +1,12 @@
+# makepkg products
+*.pkg.tar.*
+src/
+pkg/
+# makepkg git source cache
+/userspace/camera/libcamera/libcamera/
+# make-board-2.sh products
+board-2.bin
+board-2.json
+generic.bin
+# boot-splash product
+/userspace/boot-splash/book4-splash

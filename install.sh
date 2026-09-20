@@ -59,6 +59,11 @@ put 644 udev/90-book4-gpu-floor.rules       /etc/udev/rules.d/90-book4-gpu-floor
 put 644 udev/61-book4-keyboard-not-a-tablet.rules /etc/udev/rules.d/61-book4-keyboard-not-a-tablet.rules
 put 644 modules-load/book4-input.conf       /etc/modules-load.d/book4-input.conf
 put 644 modules-load/i2c-dev.conf           /etc/modules-load.d/i2c-dev.conf
+put 644 modprobe.d/book4-no-qcom-battmgr.conf /etc/modprobe.d/book4-no-qcom-battmgr.conf
+echo "suspend:"
+put 755 suspend/book4-backlight             /usr/lib/systemd/system-sleep/book4-backlight
+# Retire the unsafe history-rollback hook on upgrades too.
+rm -f "$D/usr/lib/systemd/system-sleep/book4-battery"
 
 [ -z "$D" ] || { echo "DESTDIR set: files copied, nothing enabled"; exit 0; }
 command -v earlyoom >/dev/null || echo "note: install the earlyoom package for the memory guard"
@@ -71,3 +76,4 @@ systemd-tmpfiles --create /etc/tmpfiles.d/mglru.conf
 systemctl enable --now zram-swap.service book4-pd-charge.service
 command -v earlyoom >/dev/null && systemctl enable --now earlyoom.service
 echo "done. Log out and in (or restart pipewire/wireplumber) for the audio and camera config."
+echo "Rebuild the initramfs to include the qcom_battmgr blacklist."

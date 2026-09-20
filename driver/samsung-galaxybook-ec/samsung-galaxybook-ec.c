@@ -502,10 +502,16 @@ static int book4_ec_bat_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_NOW:
 		if (remaining == 0xFFFF)
 			return -ENODATA;
+		/* 0 remaining with dead voltage is gauge re-init. */
+		if (remaining == 0 && voltage == 0xFFFF)
+			return -ENODATA;
 		val->intval = remaining * 1000;
 		return 0;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		if (remaining == 0xFFFF || ec->full_mah == 0 || ec->full_mah == 0xFFFF)
+			return -ENODATA;
+		/* Same re-init transient as CHARGE_NOW. */
+		if (remaining == 0 && voltage == 0xFFFF)
 			return -ENODATA;
 		val->intval = clamp_t(int, (int)remaining * 100 / ec->full_mah, 0, 100);
 		return 0;
