@@ -43,5 +43,7 @@ modinfo -k 7.2.0-book4-pciepm -n phy_qcom_mipi_csi2
 
 - Expected post-removal module locations: original `kernel/` paths
 - Maintained image after package removal: stale snapshot, not automatically rebuilt
-- QCE opt-out: separate test-entry kernel option, remove `module_blacklist=qcrypto` to reverse
+- Boot-time `module_blacklist=qcrypto`: rejected, blocks interconnect synchronization and retains initialization bandwidth floors
+- QCE tests: allow probe, verify interconnect synchronization, unload temporarily only with no users, restore afterward
+- Readiness check after unload: `python3 scripts/test-qce-fallback.py`
 - No global crypto blacklist, no changes to USB wake policies

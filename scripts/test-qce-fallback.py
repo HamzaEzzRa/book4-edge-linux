@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Kernel AF_ALG known answers with QCE absent, no module or policy changes
+"""Kernel AF_ALG known answers and Book4 QCE opt-out readiness
+No module or policy changes
 Run: python3 scripts/test-qce-fallback.py
 Excluded: IPsec, legacy ciphers, explicit QCE driver requests, suspend power
 """
@@ -42,3 +43,11 @@ with socket.socket(socket.AF_ALG, socket.SOCK_SEQPACKET) as algorithm:
         assert operation.recv(16).hex() == '66e94bd4ef8a2c3b884cfa59ca342b2e'
 assert not Path('/sys/module/qcrypto').exists(), 'unexpected QCE autoload'
 print('cbc(aes) passed, QCE remained absent')
+
+providers = list(Path('/sys/bus/platform/devices').glob('*.interconnect/state_synced'))
+assert providers, 'no interconnect providers found'
+unsynced = [p.parent.name for p in providers if p.read_text().strip() != '1']
+assert not unsynced, f'QCE opt-out blocked interconnect sync: {unsynced}'
+summary = Path('/sys/kernel/debug/interconnect/interconnect_summary').read_text()
+assert '2147483647' not in summary, 'interconnect initialization floor still present'
+print('Interconnect synchronization complete, no INT_MAX bandwidth floor')

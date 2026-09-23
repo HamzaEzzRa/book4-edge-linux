@@ -171,8 +171,9 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 
 - Maintained test deployment: packaged UFS/CSI overrides, ordinary preset rebuild verified, original USB drivers
 - Historical USB images: isolated snapshots, not maintained configurations
-- Next test entry: **Arch Linux (PM baseline, QCE off)**, both unused-clock flags retained
-- QCE opt-out: test entry only, common kernel crypto fallback checks passed, wider workload coverage pending
+- Next test entry: **Arch Linux (PM baseline, QCE probe first)**, both unused-clock flags retained
+- QCE boot blacklist: withdrawn, blocked interconnect synchronization and retained maximum initialization votes
+- QCE opt-out tests: probe and synchronize first, temporary unload afterward, crypto and PM-readiness checks required
 - Default `arch.conf`: older GPU-fixed fallback, unchanged
 - Current status: [suspend investigation](reports/suspend-investigation.md), full history archived separately
 
