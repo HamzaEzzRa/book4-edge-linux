@@ -167,6 +167,7 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 | 0005 | UFS clock-reference guard | Boot/runtime-PM/callback verified, UFS sleep vote cleared, power benefit unmeasured |
 | 0006 | Camera-PHY probe reference removal | Boot and camera captures before/after real suspend verified, idle camera clocks released |
 | `patches/experimental/usb/` 0007–0010 | USB ownership and PHY PM experiments | Excluded from maintained builds, unresolved mode/wake/error propagation, [review](patches/experimental/usb/README.md) |
+| `patches/experimental/clock-sync/` | Clock/domain callback composition | Source regression and native object build only, no image or hardware test, [candidate](patches/experimental/clock-sync/README.md) |
 | `patches/debug/` | CSIPHY diagnostics | Present in verified kernel, not a fix |
 
 - Maintained test deployment: packaged UFS/CSI overrides, ordinary preset rebuild verified, original USB drivers
@@ -176,8 +177,9 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 - Post-probe QCE unload: crypto/PM-readiness, core callbacks and 21-minute real sleep passed, final DDR/UFS sleep requests zero
 - Short baseline: DDR D4 97.43% of APSS sleep, battery 51% → 50%, no precise energy comparison or CX/AOSS collapse
 - Clock-flag test: boot/core/camera and 38-minute real sleep passed, DDR D4 97.44%, battery 45% → 43%, no established energy benefit
-- Current test entry: **Arch Linux (PM test, no ignore_unused flags)**, boot/core/camera checks passed, real sleep pending
-- Domain-flag core check: native domain cleanup logged, sampled clocks and sleep requests unchanged, QCE restored
+- Current test entry: **Arch Linux (PM test, no ignore_unused flags)**, boot/core/camera and 20-minute real sleep passed
+- No-flags real sleep: DDR D4 97.44%, battery 40% → 39%, approximately 1.62 W from coarse SOC endpoints, no established energy benefit
+- Three-boot comparison: final sampled clocks and RPMh requests identical, no CX/AOSS collapse, QCE and original device policies restored
 - Clock-cleanup gap: five combined clock/domain providers register only the domain synchronization callback, clock cleanup skipped
 - Default `arch.conf`: older GPU-fixed fallback, unchanged
 - Current status: [suspend investigation](reports/suspend-investigation.md), full history archived separately

@@ -1,0 +1,53 @@
+Subject: [EXPERIMENTAL] clk: qcom: compose clock and domain synchronization
+
+Scope: shared QCOM probe, default clock/domain callback
+Order: native clock cleanup before native domain synchronization
+Compatibility: early board-clock registration and explicit callbacks retained
+ICC: existing explicit providers only, no new synchronization counts
+Validation: source-fragment regression, seven mutations, native object build
+Not validated: kernel image, boot, suspend, recovery, energy
+
+--- a/drivers/clk/qcom/common.c
++++ b/drivers/clk/qcom/common.c
+@@ -11,6 +11,7 @@
+ #include <linux/clk-provider.h>
+ #include <linux/interconnect-clk.h>
+ #include <linux/interconnect-provider.h>
++#include <linux/pm_domain.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/reset-controller.h>
+ #include <linux/of.h>
+@@ -323,6 +324,12 @@
+ 		data->clk_regs_configure(dev, regmap);
+ }
+ 
++static void qcom_cc_clk_genpd_sync_state(struct device *dev)
++{
++	clk_sync_state(dev);
++	of_genpd_sync_state(dev->of_node);
++}
++
+ int qcom_cc_really_probe(struct device *dev,
+ 			 const struct qcom_cc_desc *desc, struct regmap *regmap)
+ {
+@@ -339,6 +346,11 @@
+ 	if (!cc)
+ 		return -ENOMEM;
+ 
++	/* Clock cleanup before domain power-off */
++	if (!dev->driver->sync_state ||
++	    dev->driver->sync_state == clk_sync_state)
++		dev->driver->sync_state = qcom_cc_clk_genpd_sync_state;
++
+ 	ret = devm_pm_domain_attach_list(dev, NULL, &cc->pd_list);
+ 	if (ret < 0 && ret != -EEXIST)
+ 		return ret;
+@@ -469,7 +481,7 @@
+ void qcom_cc_sync_state(struct device *dev)
+ {
+ 	icc_sync_state(dev);
+-	clk_sync_state(dev);
++	qcom_cc_clk_genpd_sync_state(dev);
+ }
+ EXPORT_SYMBOL_GPL(qcom_cc_sync_state);
+ 

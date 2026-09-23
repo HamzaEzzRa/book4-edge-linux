@@ -16,7 +16,8 @@
 - Completed no-clock-ignore real sleep: `/var/log/book4-suspend-clk.B6LlwM/`
 - Domain-flag boot staging: `/var/log/book4-pd-unused.dAD5En/`
 - No-flags boot/core evidence: `/var/log/book4-pd-baseline.Q3WnGd/`
-- Prepared no-flags real sleep: `/var/log/book4-suspend-pd.3fjith/`, not scheduled
+- Completed no-flags real sleep: `/var/log/book4-suspend-pd.3fjith/`
+- Offline clock/domain candidate: `/var/log/book4-clock-sync-fix.3Q99z4/`, not installed
 
 ## Verified
 
@@ -60,8 +61,14 @@
 | No-flags core callback | Passed, success 0 → 1 / failure 0, APSS unchanged, interval 6.875 s / monotonic 1.871 s |
 | No-flags core comparison | 216 handles, identical awake/suspend clock samples, RPMh requests and batches, DDR/UFS zero, XO 3/3 |
 | No-flags recovery | Crypto fallback, 17 synchronized ICC providers, original USB policy, Wi-Fi and camera before/after passed, QCE restored |
-| No-flags controls | 16 checker negative controls passed on the captured callback, real-sleep checker prepared |
+| No-flags controls | 16 callback-checker negative controls, real-sleep synthetic cases and captured-result reproduction passed |
+| No-flags real sleep | APSS 1243.141 s, interval 1245.005 s / monotonic 1.856 s, success 1 → 2 / failure 0 |
+| No-flags real DDR | D4 1211.312 s, 97.43963% of APSS, independent DDR sleep record 1210.346 s |
+| No-flags real battery | 40% → 39%, 0.038 Ah, approximately 1.62 W including 32.172 s awake settling, energy difference unresolved |
+| No-flags real recovery | QCE/ICC, original USB policies/counts, Wi-Fi and two discarded ten-frame camera captures passed |
+| Three-boot comparison | Final sampled clocks and complete RPMh requests/batches identical, DDR/UFS zero, XO 3/3, CX/AOSS entries zero |
 | Clock cleanup coverage | Native sweeps logged for some providers, five combined clock/domain providers retain `genpd_sync_state` only |
+| Offline clock/domain candidate | Shared callback composition, original regression reproduced, candidate and seven mutation controls passed, native object built, no image or hardware test |
 | QCE blacklist | `1700000.interconnect` unsynchronized, QCE only non-active consumer, global ICC initialization floors retained |
 | Readiness guard | Rejects boot-time blacklist, passes temporary unload after successful probe and synchronization |
 | Windows preservation | BCD, BCD.LOG and BOOTSTAT.DAT changed across manual reboot, original failure retained, no writes or rollback to those files |
@@ -108,17 +115,46 @@
 - Result: domain synchronization completes, per-provider clock cleanup missing for those five providers
 - `pd_ignore_unused`: guards the late unused-domain pass, not `of_genpd_sync_state()`
 - One-shot diagnostic: device locks and cached callback names only, no provider calls, no hardware writes, module unloaded
-- Source ordering and runtime callback names verified, source copies and checker in `sync-owner/` under the current evidence directory
-- No live supplier synchronization, no clock/domain source changes, no power-saving claim
+- Source ordering and runtime callback names verified, source copies and checker in `/var/log/book4-clk-baseline.6DJROR/sync-owner/`
+- Running kernel and kernel worktree unchanged, no live supplier synchronization or power-saving claim
 - Four LDO cache entries differ from the earlier pre-camera core capture, complete requests match the camera-exercised real-sleep baseline
+
+## Completed flag comparison
+
+| Configuration | APSS sleep | DDR D4/APSS | Battery | Coarse W including settling |
+|---|---:|---:|---:|---:|
+| Both flags | 21 min 26 s | 97.43459% | 51% → 50% | 1.58 |
+| Clock flag absent | 38 min 34 s | 97.43812% | 45% → 43% | 1.77 |
+| Both flags absent | 20 min 43 s | 97.43963% | 40% → 39% | 1.62 |
+
+- Common configuration: maintained patches, original USB, temporary post-probe QCE unload, battery only
+- Final sampled clocks and RPMh requests: identical across all three tests
+- Awake-only differences: UFS, I2C and shared XO counts, exact rows in `clock-comparison.json`
+- CX/AOSS collapse: absent
+- SOC resolution: approximately 1%, no established energy improvement or regression
+- Normal QCE-loaded overnight drain: not measured on this configuration
+
+## Offline clock/domain candidate
+
+- Patch and boundaries: [experimental clock synchronization](../patches/experimental/clock-sync/README.md)
+- Default composition: clocks before domains, installed before either framework registers its callback
+- Early board-clock ownership: recognized and upgraded
+- Explicit callbacks: preserved, existing ICC wrapper extended with domain synchronization
+- Non-ICC controllers: no `icc_sync_state()` call, global synchronization counter unchanged
+- Census: 187 shared-probe driver sources, six explicit ICC callbacks matching six ICC descriptors
+- Regression: actual selection fragment, callbacks and framework setter, original runtime assertion failure retained
+- Candidate checks: shared driver, repeated setup, no-domain case, custom callbacks, ordering and ICC accounting
+- Seven broken variants rejected by runtime assertions
+- Native `common.o`: built against matching headers/config/compiler, exported symbol names unchanged, only new import `of_genpd_sync_state`
+- Scope: isolated source copy, no kernel image, installed file, entry or running callback changes
 
 ## Next tests
 
-1. Coordinate ten-minute battery-only real sleep and manual wake with both ignore-unused flags absent
-2. Verify recovery, compare final cached state and firmware residency without assuming energy savings
-3. Review combined-provider synchronization ordering before any clock-cleanup kernel fix
-4. Measure overnight drain on the intended daily-use configuration
-5. Resume USB ownership/wake/error-path work only with consumer-side recovery coverage
+1. Charger-connected clean maintained-source kernel build with the isolated clock/domain candidate
+2. Manual test-entry boot, callback ownership and cleanup logs, QCE/ICC readiness, device recovery and core diagnostic
+3. Coordinated real sleep and recovery after successful boot/core checks
+4. Overnight drain on the intended daily-use configuration, including normal QCE-loaded operation
+5. USB ownership/wake/error-path work with consumer-side recovery coverage
 
 ## Boundaries
 
@@ -138,7 +174,7 @@
 - QCE opt-out: workaround, not a driver PM fix
 - Hibernate: cold-resume reset stage unresolved
 - RTC alarm: unavailable, manual wake required
-- Latest coordinated sleep: planned ten minutes, manually ended after approximately 38 minutes 34 seconds
+- Latest coordinated sleep: planned ten minutes, manually ended after approximately 20 minutes 43 seconds
 - Known warnings retained: PCIe L2 timeout, IRQ-affinity failures and Wi-Fi hwmon parent-sleep warning
 - No reboot scheduled, default/fallback unchanged
 - Earlier post-callback inhibitor race: preserved, corrected by waiting for logind sleep completion and verifying the owned inhibitor PID
