@@ -8,7 +8,9 @@
 - Original chronology and failures: [2026-09-20–22 archive](archive/suspend-2026-09-20-22.md)
 - Checkpoint including observer: `74f1210`
 - Deployment evidence: `/var/log/book4-review-fixes.5t5Ufq/`
-- Baseline boot/callback evidence: `/var/log/book4-pm-baseline.PfGPx7/`
+- Rejected blacklist baseline: `/var/log/book4-pm-baseline.PfGPx7/`
+- Probe-first baseline: `/var/log/book4-qce-probe.9e24x1/`
+- Prepared real-sleep capture: `/var/log/book4-suspend-probe.dizeUw/`, not scheduled
 
 ## Verified
 
@@ -26,12 +28,16 @@
 | Maintained module package | Installed UFS/CSI binaries identical to previously tested binaries |
 | Initramfs rebuild | 367 module vermagics, installed-byte matches, identical extracted contents and modes across two builds |
 | QCE crypto fallback | Kernel AF_ALG SHA-1, SHA-256, both HMAC variants and AES-CBC passed with QCE absent |
-| Maintained boot | `ff0e1b57-9220-401a-a454-864e8c0826d5`, expected kernel/modules, original USB drivers |
-| Baseline core callback | Success 0 → 1, failure 0, APSS duration unchanged, 6.842 s interval / 1.839 s monotonic |
-| Baseline recovery | UFS sleep request 0/0, six CSI clocks released, original USB policy/wakeup/counts restored, two camera captures passed |
-| Power goal | Failed, DDR sleep avg/peak and init values 2147483647, ACV 0/8, MC0 255652/2045222 |
+| Rejected blacklisted boot | `ff0e1b57-9220-401a-a454-864e8c0826d5`, callback completed, power goal failed |
+| Blacklist failure | DDR sleep avg/peak and init values 2147483647, ACV 0/8, MC0 255652/2045222 |
+| Corrected boot | `cbf88fb6-930e-4072-83b2-48c2aa5ad299`, expected kernel/modules, original USB, QCE probed |
+| Probe-first core callback | Passed, success 0 → 1 / failure 0, APSS duration unchanged, 6.898 s interval / 1.894 s monotonic |
+| Corrected final votes | DDR avg/peak and init 0/0, ACV and MC0 0/0, UFS 0/0, XO still 3/3 |
+| Corrected recovery | QCE restored, all 17 ICC providers synchronized, original USB policy/wakeup/counts restored, six CSI clocks released |
+| Camera recovery | Two ten-frame captures passed, no images saved, six idle clocks zero after CCI autosuspend |
+| Test controls | 14 callback-checker negative controls, actual inhibitor acquisition verified, real-sleep checker rejects core-only/zero-APSS fixtures |
 | QCE blacklist | `1700000.interconnect` unsynchronized, QCE only non-active consumer, global ICC initialization floors retained |
-| Readiness guard | Crypto checks pass, new synchronization check correctly rejects this boot |
+| Readiness guard | Rejects boot-time blacklist, passes temporary unload after successful probe and synchronization |
 | Windows preservation | BCD, BCD.LOG and BOOTSTAT.DAT changed across manual reboot, original failure retained, no writes or rollback to those files |
 
 ## Deployment
@@ -44,23 +50,22 @@
 - New image: `/boot/initramfs-book4-pm.img`
 - Kernel: existing `/boot/vmlinuz-book4-pciepm.efi`, GPU fix and native PCIe PM, no 0007
 - Existing CSI diagnostic code: retained in the tested module
-- Next entry: **Arch Linux (PM baseline, QCE probe first)**
-- Boot-time blacklist: removed from next entry, current boot still blacklisted
-- Next QCE test: allow probe and ICC synchronization, verify no users, unload temporarily, restore afterward
+- Current entry: **Arch Linux (PM baseline, QCE probe first)**
+- Boot-time blacklist: absent, QCE probed normally
+- Validated QCE test sequence: probe, synchronize, verify no users, temporary unload, restore
 - Both `clk_ignore_unused` and `pd_ignore_unused`: retained for the baseline
 - Default/fallback, executable bootloaders and historical kernel/initramfs images: unchanged
 - Full historical preservation check: failed on three Windows data/configuration files, cause unconfirmed
-- Independent Linux validation: passed, observed Windows changes recorded separately and left untouched
-- Corrected baseline: manual reboot required, no real-sleep measurement on the rejected blacklist setup
+- Independent Linux validation: passed, previous Windows differences unchanged on this reboot and left untouched
+- Corrected baseline: boot and callback verified, real-sleep runner prepared, manual wake coordination pending
 
 ## Next tests
 
-1. Boot without the QCE blacklist, verify QCE binding, all ICC providers synchronized and initialization floors cleared
-2. Temporarily unload unused QCE, run crypto/PM-readiness checks, repeat callback baseline before real sleep
-3. Remove only `clk_ignore_unused` for a separate boot and equivalent checks
-4. Test `pd_ignore_unused` separately, without simultaneous driver or policy changes
-5. Measure overnight drain on the intended daily-use configuration
-6. Resume USB ownership/wake/error-path work only with consumer-side recovery coverage
+1. Coordinate ten-minute battery-only real sleep and manual wake on the verified baseline
+2. Remove only `clk_ignore_unused` for a separate boot and equivalent checks
+3. Test `pd_ignore_unused` separately, without simultaneous driver or policy changes
+4. Measure overnight drain on the intended daily-use configuration
+5. Resume USB ownership/wake/error-path work only with consumer-side recovery coverage
 
 ## Boundaries
 
@@ -81,6 +86,6 @@
 - Hibernate: cold-resume reset stage unresolved
 - RTC alarm: unavailable, manual wake required
 - Five-second core callback exercised, no assistant-initiated real sleep or reboot
-- Post-callback inhibitor attempt raced logind completion and failed, recorded separately, replacement inhibitor acquired during diagnosis
+- Earlier post-callback inhibitor race: preserved, corrected by waiting for logind sleep completion and verifying the owned inhibitor PID
 - No wake-policy changes or pending experiment timers
 - Temporary inhibitor released before manual handoff
