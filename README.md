@@ -175,7 +175,8 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 - QCE boot blacklist: withdrawn, blocked interconnect synchronization and retained maximum initialization votes
 - Post-probe QCE unload: crypto/PM-readiness, core callbacks and 21-minute real sleep passed, final DDR/UFS sleep requests zero
 - Short baseline: DDR D4 97.43% of APSS sleep, battery 51% → 50%, no precise energy comparison or CX/AOSS collapse
-- Next test entry: **Arch Linux (PM test, no clk_ignore_unused)**, only `clk_ignore_unused` removed, `pd_ignore_unused` retained
+- Current test entry: **Arch Linux (PM test, no clk_ignore_unused)**, boot/core/camera checks passed, real sleep pending, `pd_ignore_unused` retained
+- Clock-cleanup gap: five combined clock/domain providers register only the domain synchronization callback, clock cleanup skipped
 - Default `arch.conf`: older GPU-fixed fallback, unchanged
 - Current status: [suspend investigation](reports/suspend-investigation.md), full history archived separately
 

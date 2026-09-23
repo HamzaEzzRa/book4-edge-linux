@@ -12,6 +12,8 @@
 - Probe-first baseline: `/var/log/book4-qce-probe.9e24x1/`
 - Maintained real-sleep baseline: `/var/log/book4-suspend-probe.dizeUw/`
 - Single-flag boot staging: `/var/log/book4-clk-unused.pzWOJp/`
+- No-clock-ignore boot/core and callback-owner evidence: `/var/log/book4-clk-baseline.6DJROR/`
+- Prepared no-clock-ignore real sleep: `/var/log/book4-suspend-clk.B6LlwM/`, not scheduled
 
 ## Verified
 
@@ -42,7 +44,11 @@
 | Real-sleep battery | 51% → 50%, 0.038 Ah, roughly 1.6 W including 32.149 s awake settling, single coarse step, not a precision comparison |
 | Real-sleep recovery | QCE restored, all 17 ICC providers synchronized, original USB policy/wakeup/counts and Wi-Fi restored |
 | Test controls | 14 callback-checker negative controls, real-sleep checker rejects core-only/zero-APSS fixtures, both checkers reproduce the captured real-sleep results |
-| Next boot staging | Same kernel/initramfs/DTB, only `clk_ignore_unused` removed, entry title updated, rollback and extra-flag rejection tested |
+| Single-flag boot | `6e7850b1-6908-4989-8263-6e6bfe49d3ea`, same kernel/initramfs/DTB, only `clk_ignore_unused` removed |
+| Single-flag core callback | Passed, success 0 → 1 / failure 0, APSS unchanged, interval 6.869 s / monotonic 1.867 s |
+| Single-flag recovery | Crypto fallback, all 17 ICC providers, original USB policies and two camera captures before/after passed |
+| Single-flag cached state | 216 handles and identical clock samples, DDR/UFS zero, XO still 3/3, 16 checker negative controls passed |
+| Clock cleanup coverage | Native sweeps logged for some providers, five combined clock/domain providers retain `genpd_sync_state` only |
 | QCE blacklist | `1700000.interconnect` unsynchronized, QCE only non-active consumer, global ICC initialization floors retained |
 | Readiness guard | Rejects boot-time blacklist, passes temporary unload after successful probe and synchronization |
 | Windows preservation | BCD, BCD.LOG and BOOTSTAT.DAT changed across manual reboot, original failure retained, no writes or rollback to those files |
@@ -57,26 +63,41 @@
 - New image: `/boot/initramfs-book4-pm.img`
 - Kernel: existing `/boot/vmlinuz-book4-pciepm.efi`, GPU fix and native PCIe PM, no 0007
 - Existing CSI diagnostic code: retained in the tested module
-- Verified running baseline: **Arch Linux (PM baseline, QCE probe first)**
-- Staged next entry: **Arch Linux (PM test, no clk_ignore_unused)**, not yet boot-verified
+- Verified reference baseline: **Arch Linux (PM baseline, QCE probe first)**
+- Current verified entry: **Arch Linux (PM test, no clk_ignore_unused)**
 - Boot-time blacklist: absent, QCE probed normally
 - Validated QCE test sequence: probe, synchronize, verify no users, temporary unload, restore
-- Running baseline: both `clk_ignore_unused` and `pd_ignore_unused` retained
-- Next boot: native unused-clock cleanup enabled, `pd_ignore_unused` retained
-- Awake clock-provider synchronization: six providers synchronized before the flag test
+- Reference baseline: both `clk_ignore_unused` and `pd_ignore_unused` retained
+- Current boot: `clk_ignore_unused` absent, `pd_ignore_unused` retained
+- Six sampled clock providers: `state_synced=1`, not proof of clock-cleanup execution
 - Clock cleanup: native count and `CLK_IGNORE_UNUSED` guards retained, no live clock gating
 - Default/fallback, executable bootloaders and historical kernel/initramfs images: unchanged
 - Full historical preservation check: failed on three Windows data/configuration files, cause unconfirmed
 - Independent Linux validation: passed, previous Windows differences unchanged on this reboot and left untouched
 - Corrected baseline: boot, core callback, real sleep and camera recovery verified
-- Next-boot validator: rejects the current boot, old entry and retained clock flag
+- Clock-flag boot validator: new boot passed, old-boot/entry/flag rejection controls retained
 - Baseline entry backup: `/var/log/book4-clk-unused.pzWOJp/entry-before.conf`
+
+## Clock-cleanup coverage gap
+
+- Cached runtime callback inspection: GCC, GPUCC, CAMCC, DISPCC and VIDEOCC use `genpd_sync_state`
+- TCSRCC control: `clk_sync_state`, native clock-cleanup message present
+- `qcom_cc_really_probe()`: GDSC registration before clock registration
+- `of_genpd_add_provider_onecell()`: installs the domain synchronization callback first
+- `__clk_register()`: requests `clk_sync_state`, existing different callback returns `-EBUSY`, return ignored
+- Global late clock sweep: skips device-owned clocks
+- Result: domain synchronization completes, per-provider clock cleanup missing for those five providers
+- `pd_ignore_unused`: guards the late unused-domain pass, not `of_genpd_sync_state()`
+- One-shot diagnostic: device locks and cached callback names only, no provider calls, no hardware writes, module unloaded
+- Source ordering and runtime callback names verified, source copies and checker in `sync-owner/` under the current evidence directory
+- No live supplier synchronization, no clock/domain source changes, no power-saving claim
+- Four LDO cache entries differ from the earlier pre-camera core capture, complete requests match the camera-exercised real-sleep baseline
 
 ## Next tests
 
-1. Manually boot the staged no-`clk_ignore_unused` entry, verify identity, probe/synchronization and native clock-cleanup logs
-2. Repeat reversible post-probe QCE opt-out, callback, recovery and coordinated real-sleep checks
-3. Test `pd_ignore_unused` separately, without simultaneous driver or policy changes
+1. Coordinate ten-minute battery-only real sleep and manual wake with `clk_ignore_unused` absent
+2. Test `pd_ignore_unused` separately, without simultaneous driver or policy changes
+3. Review combined-provider synchronization ordering before any clock-cleanup kernel fix
 4. Measure overnight drain on the intended daily-use configuration
 5. Resume USB ownership/wake/error-path work only with consumer-side recovery coverage
 
