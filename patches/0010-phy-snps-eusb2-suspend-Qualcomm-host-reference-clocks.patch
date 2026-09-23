@@ -1,0 +1,111 @@
+From: hamza <hamza@book4>
+Subject: [PATCH 10/10] phy: snps-eusb2: suspend Qualcomm host reference clocks
+
+- Remaining USB2 reference gates: keep the Linux XO sleep request enabled
+- Qualcomm host bus-suspend reference: downstream msm_eusb2_phy_set_suspend()
+- Clock-only suspend: PHY supplies, repeater state and wake handling retained
+- Scope: initialized SM8550-compatible host PHYs, system suspend/resume only
+- Consumer ordering: existing generic-PHY device links
+- Exynos, device mode, runtime PM and hibernation callbacks unchanged
+- Failed clock resume: error propagated, suspended state retained for retry
+- Exit after failed resume: no second clock disable
+- Validation: actual init/exit/PM helpers, shared gates, 100 cycles, failures
+- Hardware suspend, peripheral wake and energy validation pending
+- Reference: LineageOS/android_kernel_qcom_sm8550, lineage-21
+- PHY source blob: df26b5e02b7c54430370cab7b7a044b63aae3778
+---
+ drivers/phy/phy-snps-eusb2.c | 46 +++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 45 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/phy/phy-snps-eusb2.c b/drivers/phy/phy-snps-eusb2.c
+index 7c35dbbae..91e0a1fc3 100644
+--- a/drivers/phy/phy-snps-eusb2.c
++++ b/drivers/phy/phy-snps-eusb2.c
+@@ -9,6 +9,7 @@
+ #include <linux/iopoll.h>
+ #include <linux/phy/phy.h>
+ #include <linux/platform_device.h>
++#include <linux/pm.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/reset.h>
+ #include <linux/clk/clk-conf.h>
+@@ -171,6 +172,7 @@ struct snps_eusb2_hsphy {
+ 	struct regulator_bulk_data vregs[EUSB2_NUM_VREGS];
+ 
+ 	enum phy_mode mode;
++	bool clocks_suspended;
+ 
+ 	struct phy *repeater;
+ 
+@@ -514,7 +516,9 @@ static int snps_eusb2_hsphy_exit(struct phy *p)
+ {
+ 	struct snps_eusb2_hsphy *phy = phy_get_drvdata(p);
+ 
+-	clk_bulk_disable_unprepare(phy->data->num_clks, phy->clks);
++	if (!phy->clocks_suspended)
++		clk_bulk_disable_unprepare(phy->data->num_clks, phy->clks);
++	phy->clocks_suspended = false;
+ 
+ 	regulator_bulk_disable(ARRAY_SIZE(phy->vregs), phy->vregs);
+ 
+@@ -523,6 +527,44 @@ static int snps_eusb2_hsphy_exit(struct phy *p)
+ 	return 0;
+ }
+ 
++static int snps_eusb2_hsphy_suspend(struct device *dev)
++{
++	struct snps_eusb2_hsphy *phy = dev_get_drvdata(dev);
++
++	if (phy->data != &sm8550_snps_eusb2_phy ||
++	    phy->mode != PHY_MODE_USB_HOST || !phy->phy->init_count ||
++	    phy->clocks_suspended)
++		return 0;
++
++	/* Host bus suspended, supplies and repeater retained for wake */
++	clk_bulk_disable_unprepare(phy->data->num_clks, phy->clks);
++	phy->clocks_suspended = true;
++
++	return 0;
++}
++
++static int snps_eusb2_hsphy_resume(struct device *dev)
++{
++	struct snps_eusb2_hsphy *phy = dev_get_drvdata(dev);
++	int ret;
++
++	if (!phy->clocks_suspended)
++		return 0;
++
++	ret = clk_bulk_prepare_enable(phy->data->num_clks, phy->clks);
++	if (ret)
++		return ret;
++
++	phy->clocks_suspended = false;
++
++	return 0;
++}
++
++static const struct dev_pm_ops snps_eusb2_hsphy_pm_ops = {
++	.suspend = pm_sleep_ptr(snps_eusb2_hsphy_suspend),
++	.resume = pm_sleep_ptr(snps_eusb2_hsphy_resume),
++};
++
+ static const struct phy_ops snps_eusb2_hsphy_ops = {
+ 	.init		= snps_eusb2_hsphy_init,
+ 	.exit		= snps_eusb2_hsphy_exit,
+@@ -603,6 +645,7 @@ static int snps_eusb2_hsphy_probe(struct platform_device *pdev)
+ 		return PTR_ERR(generic_phy);
+ 	}
+ 
++	phy->phy = generic_phy;
+ 	dev_set_drvdata(dev, phy);
+ 	phy_set_drvdata(generic_phy, phy);
+ 
+@@ -630,6 +673,7 @@ static struct platform_driver snps_eusb2_hsphy_driver = {
+ 	.probe		= snps_eusb2_hsphy_probe,
+ 	.driver = {
+ 		.name	= "snps-eusb2-hsphy",
++		.pm	= &snps_eusb2_hsphy_pm_ops,
+ 		.of_match_table = snps_eusb2_hsphy_of_match_table,
+ 	},
+ 	.driver_managed_clk_defaults = true,

@@ -459,6 +459,11 @@
 	};
 };
 
+&{/soc@0/sram@c3f0000} {
+	/* AOSS DDR duration-counter synchronization */
+	qcom,qmp = <&aoss_qmp>;
+};
+
 &apps_rsc {
 	regulators-0 {
 		compatible = "qcom,pm8550-rpmh-regulators";

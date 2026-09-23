@@ -1,0 +1,44 @@
+From: hamza <hamza@book4>
+Subject: [PATCH 6/6] phy: qcom-mipi-csi2: drop unbalanced probe clock enable
+
+The probe function prepares and enables every PHY clock, but never drops
+that reference, either after registration or on subsequent probe failures.
+The power_on/power_off pair takes and releases a separate reference, so a
+streaming cycle cannot remove the original one. The driver also has no PM
+callbacks which release these probe-time references during system suspend.
+
+On the Book4, the two idle CSI PHYs retain their CSIPHY and timer clocks,
+plus shared camera AHB/AXI references, while CAMSS is runtime-suspended.
+These clocks descend from the sleep-inclusive XO clock.
+
+Probe does not access PHY registers and does not need these clocks enabled.
+Leave clock ownership to the existing power_on/power_off operations, which
+enable clocks before reading the hardware version and configuring lanes.
+The existing camera diagnostic patch does not add this probe enable.
+
+The original fails the probe-reference regression; the correction passes
+that check and the extracted power helpers pass repeated cycles and
+regulator, rate-setting and clock-enable failure/retry checks. Module build
+passes. Camera streaming, suspend behavior and power savings with the
+corrected driver are not yet hardware-tested.
+---
+ drivers/phy/qualcomm/phy-qcom-mipi-csi2-core.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-mipi-csi2-core.c b/drivers/phy/qualcomm/phy-qcom-mipi-csi2-core.c
+index 1def2d125..9161e6822 100644
+--- a/drivers/phy/qualcomm/phy-qcom-mipi-csi2-core.c
++++ b/drivers/phy/qualcomm/phy-qcom-mipi-csi2-core.c
+@@ -217,12 +217,6 @@ static int phy_qcom_mipi_csi2_probe(struct platform_device *pdev)
+ 		return ret;
+ 	}
+ 
+-	ret = clk_bulk_prepare_enable(num_clk, csi2phy->clks);
+-	if (ret) {
+-		dev_err(dev, "apq8016 clk_enable failed\n");
+-		return ret;
+-	}
+-
+ 	num_supplies = csi2phy->soc_cfg->num_supplies;
+ 	csi2phy->supplies = devm_kzalloc(dev, sizeof(*csi2phy->supplies) * num_supplies,
+ 					 GFP_KERNEL);

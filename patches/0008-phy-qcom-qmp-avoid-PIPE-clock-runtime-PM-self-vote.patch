@@ -1,0 +1,140 @@
+From: hamza <hamza@book4>
+Subject: [PATCH 8/8] phy: qcom-qmp: register clocks before enabling runtime PM
+
+CCF snapshots pm_runtime_enabled() when a clock is registered and takes a
+provider runtime reference while that clock is prepared. QMP's generated
+PIPE clock feeds the GCC gate consumed by the PHY itself. Registering it
+after enabling runtime PM creates a self-vote: the prepared PIPE source
+keeps the PHY active, but only its suspend callback releases PIPE.
+
+The two Book4 USB-C combo PHY PIPE providers were observed with cached
+rpm_enabled=1 and prepare_count=1. The multiport GCC PIPE gates on this
+kernel have no parents, so this is not the explanation for the separate
+USB-A runtime test failure caused by duplicate DWC3/xHCI PHY ownership.
+
+Register the software clock providers before enabling runtime PM in the
+USB, legacy USB, combo and USBC probes. Their fixed-rate/cached DP-rate
+operations do not access PHY hardware. Keep runtime PM enabled before
+creating the generic PHY devices, and retain the default forbid policy.
+No clocks or runtime references are forcibly disabled.
+
+The original registration order fails the regression using extracted CCF
+helpers; the correction passes for all four drivers. All four modules
+compile (legacy uses a make-only configuration override on this machine).
+USB/DisplayPort operation, suspend and power savings remain hardware-untested.
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c      | 10 +++++-----
+ drivers/phy/qualcomm/phy-qcom-qmp-usb-legacy.c |  9 +++++----
+ drivers/phy/qualcomm/phy-qcom-qmp-usb.c        |  9 +++++----
+ drivers/phy/qualcomm/phy-qcom-qmp-usbc.c       |  9 +++++----
+ 4 files changed, 20 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 2ebaa16a1..b94cf2bf3 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -4969,6 +4969,11 @@ static int qmp_combo_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto err_node_put;
+ 
++	/* PIPE self-vote prevention: clock registration before runtime PM */
++	ret = qmp_combo_register_clocks(qmp, usb_np, dp_np);
++	if (ret)
++		goto err_node_put;
++
+ 	/*
+ 	 * Enable runtime PM support, but forbid it by default.
+ 	 * Users can allow it again via the power/control attribute in sysfs.
+@@ -4979,11 +4984,6 @@ static int qmp_combo_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto err_node_put;
+ 
+-	ret = qmp_combo_register_clocks(qmp, usb_np, dp_np);
+-	if (ret)
+-		goto err_node_put;
+-
+-
+ 	qmp->usb_phy = devm_phy_create(dev, usb_np, &qmp_combo_usb_phy_ops);
+ 	if (IS_ERR(qmp->usb_phy)) {
+ 		ret = PTR_ERR(qmp->usb_phy);
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-usb-legacy.c b/drivers/phy/qualcomm/phy-qcom-qmp-usb-legacy.c
+index 8bf951b04..27197474e 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-usb-legacy.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-usb-legacy.c
+@@ -1277,6 +1277,11 @@ static int qmp_usb_legacy_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto err_node_put;
+ 
++	/* PIPE self-vote prevention: clock registration before runtime PM */
++	ret = phy_pipe_clk_register(qmp, np);
++	if (ret)
++		goto err_node_put;
++
+ 	pm_runtime_set_active(dev);
+ 	ret = devm_pm_runtime_enable(dev);
+ 	if (ret)
+@@ -1287,10 +1292,6 @@ static int qmp_usb_legacy_probe(struct platform_device *pdev)
+ 	 */
+ 	pm_runtime_forbid(dev);
+ 
+-	ret = phy_pipe_clk_register(qmp, np);
+-	if (ret)
+-		goto err_node_put;
+-
+ 	qmp->phy = devm_phy_create(dev, np, &qmp_usb_legacy_phy_ops);
+ 	if (IS_ERR(qmp->phy)) {
+ 		ret = PTR_ERR(qmp->phy);
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-usb.c b/drivers/phy/qualcomm/phy-qcom-qmp-usb.c
+index c5507168e..d17a89f53 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-usb.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-usb.c
+@@ -2411,6 +2411,11 @@ static int qmp_usb_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto err_node_put;
+ 
++	/* PIPE self-vote prevention: clock registration before runtime PM */
++	ret = phy_pipe_clk_register(qmp, np);
++	if (ret)
++		goto err_node_put;
++
+ 	pm_runtime_set_active(dev);
+ 	ret = devm_pm_runtime_enable(dev);
+ 	if (ret)
+@@ -2421,10 +2426,6 @@ static int qmp_usb_probe(struct platform_device *pdev)
+ 	 */
+ 	pm_runtime_forbid(dev);
+ 
+-	ret = phy_pipe_clk_register(qmp, np);
+-	if (ret)
+-		goto err_node_put;
+-
+ 	qmp->phy = devm_phy_create(dev, np, &qmp_usb_phy_ops);
+ 	if (IS_ERR(qmp->phy)) {
+ 		ret = PTR_ERR(qmp->phy);
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-usbc.c b/drivers/phy/qualcomm/phy-qcom-qmp-usbc.c
+index ab3055bb5..5f175cdfe 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-usbc.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-usbc.c
+@@ -1959,6 +1959,11 @@ static int qmp_usbc_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto err_node_put;
+ 
++	/* PIPE self-vote prevention: clock registration before runtime PM */
++	ret = qmp_usbc_register_clocks(qmp, np);
++	if (ret)
++		goto err_node_put;
++
+ 	pm_runtime_set_active(dev);
+ 	ret = devm_pm_runtime_enable(dev);
+ 	if (ret)
+@@ -1969,10 +1974,6 @@ static int qmp_usbc_probe(struct platform_device *pdev)
+ 	 */
+ 	pm_runtime_forbid(dev);
+ 
+-	ret = qmp_usbc_register_clocks(qmp, np);
+-	if (ret)
+-		goto err_node_put;
+-
+ 	qmp->usb_phy = devm_phy_create(dev, np, &qmp_usbc_usb_phy_ops);
+ 	if (IS_ERR(qmp->usb_phy)) {
+ 		ret = PTR_ERR(qmp->usb_phy);

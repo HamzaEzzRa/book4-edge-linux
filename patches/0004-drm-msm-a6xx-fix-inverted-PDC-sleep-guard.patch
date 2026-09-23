@@ -1,0 +1,35 @@
+From: hamza <hamza@book4>
+Subject: [PATCH 4/4] drm/msm/a6xx: fix inverted PDC sleep guard
+
+GMU_STATUS_FW_START records that firmware has initialized the registers
+needed for the PDC sleep sequence. Return when that flag is absent, not
+when it is present.
+
+The inverted guard skips normal GPU RSC shutdown after every firmware
+start and permits it before initialization or on a repeated stop. Fix the
+shared helper used by normal shutdown, force-off and resume error cleanup.
+
+The installed Book4 module contains this inverted branch. DDR residency
+remains at 4224 MHz during suspend despite removal of the Linux GPU ICC
+vote. With this correction, boot and deep-suspend resume succeed and DDR
+spends essentially all suspension at 547 MHz instead. Linux sleep votes
+are unchanged. Full SoC collapse and suspend wattage remain unresolved.
+
+Fixes: f248d5d5159a ("drm/msm/a6xx: Fix PDC sleep sequence")
+---
+ drivers/gpu/drm/msm/adreno/a6xx_gmu.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+index d9d10f5a7..06d4cfe25 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+@@ -642,7 +642,7 @@ static void a6xx_rpmh_stop(struct a6xx_gmu *gmu)
+ 	int ret;
+ 	u32 val;
+ 
+-	if (test_and_clear_bit(GMU_STATUS_FW_START, &gmu->status))
++	if (!test_and_clear_bit(GMU_STATUS_FW_START, &gmu->status))
+ 		return;
+ 
+ 	if (adreno_is_a840(adreno_gpu))

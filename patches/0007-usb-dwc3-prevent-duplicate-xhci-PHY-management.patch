@@ -1,0 +1,49 @@
+From: hamza <hamza@book4>
+Subject: [PATCH 7/8] usb: dwc3: prevent duplicate xHCI PHY management
+
+DWC3 initializes and powers its generic PHYs before registering the xHCI
+child. Set the existing XHCI_SKIP_PHY_INIT platform quirk so usb_add_hcd()
+does not acquire another initialization and power reference to those PHYs
+through hcd->self.sysdev.
+
+On Book4, all three xHCI controllers have skip_phy_initialization=0 and a
+non-NULL phy_roothub; the four USB3 PHYs each have init_count=power_count=2.
+An awake runtime-PM test suspended xHCI and DWC3, but the selected PHY stayed
+active with its clocks held. Root-hub autosuspend skips the non-auto PHY
+suspend path, leaving its reference after DWC3 drops its own runtime vote.
+
+Use the existing platform-data mechanism, shared by all DWC3 host children.
+xHCI forwards the primary HCD's skip flag to the shared HCD. Include xhci.h
+for the quirk definition; it already includes the three replaced headers.
+This does not change runtime-PM defaults or wakeup policy.
+
+The original fails the ownership regression. The corrected host object
+compiles and the regression passes with the companion QMP correction.
+This correction has not been booted or hardware-tested.
+---
+ drivers/usb/dwc3/host.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/usb/dwc3/host.c b/drivers/usb/dwc3/host.c
+index 96b588bd0..8acfa3175 100644
+--- a/drivers/usb/dwc3/host.c
++++ b/drivers/usb/dwc3/host.c
+@@ -13,9 +13,7 @@
+ #include <linux/usb.h>
+ #include <linux/usb/hcd.h>
+ 
+-#include "../host/xhci-port.h"
+-#include "../host/xhci-ext-caps.h"
+-#include "../host/xhci-caps.h"
++#include "../host/xhci.h"
+ #include "../host/xhci-plat.h"
+ #include "core.h"
+ 
+@@ -78,6 +76,7 @@ static void dwc3_xhci_plat_start(struct usb_hcd *hcd)
+ }
+ 
+ static const struct xhci_plat_priv dwc3_xhci_plat_quirk = {
++	.quirks = XHCI_SKIP_PHY_INIT,
+ 	.plat_start = dwc3_xhci_plat_start,
+ };
+ 

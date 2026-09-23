@@ -14,8 +14,8 @@ KB9058 embedded controller, and the Type-C/charger I2C buses.
 Signed-off-by: ciscobugger <xizko55@gmail.com>
 ---
  arch/arm64/boot/dts/qcom/Makefile             |    1 +
- ...100-samsung-galaxy-book4-edge-np750xqa.dts | 2074 +++++++++++++++++
- 2 files changed, 2075 insertions(+)
+ ...100-samsung-galaxy-book4-edge-np750xqa.dts | 2079 +++++++++++++++++
+ 2 files changed, 2080 insertions(+)
  create mode 100644 arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqa.dts
 
 diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
@@ -29,10 +29,10 @@ index 176e8b6c7..4c0d329dc 100644
 +dtb-$(CONFIG_ARCH_QCOM) += x1p42100-samsung-galaxy-book4-edge-np750xqa.dtb
 diff --git a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqa.dts b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqa.dts
 new file mode 100644
-index 000000000..3a02303fc
+index 000000000..f5fcf48cd
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqa.dts
-@@ -0,0 +1,2074 @@
+@@ -0,0 +1,2079 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Samsung Galaxy Book4 Edge 15.6" (NP750XQA), Snapdragon X Plus X1P42100.
@@ -492,6 +492,11 @@ index 000000000..3a02303fc
 +			};
 +		};
 +	};
++};
++
++&{/soc@0/sram@c3f0000} {
++	/* AOSS DDR duration-counter synchronization */
++	qcom,qmp = <&aoss_qmp>;
 +};
 +
 +&apps_rsc {

@@ -2,6 +2,29 @@
 
 The S2MM006 PD controller, not the EC, is the charging path.
 
+## Non-PD 5 V input limitation — 2026-09-21
+
+| Item | Finding |
+|---|---|
+| Source | USB wall outlet, estimated 5–10 W, actual capability unverified |
+| Attachment | Detected, S2MM006 attach `0x09` |
+| Charging input | Switch status `0x00`, AC offline, battery discharging |
+| PD capabilities | Cached Source_Capabilities zero-filled |
+| Confirmed software block | `rearm_pd_bus()` requires `source_caps()` before enabling the input |
+| Code | `userspace/charging/book4-pd-charge:120` |
+| Offline control | Missing PD capabilities rejected, synthetic 5 V-only PD source eligible |
+| Distinction | PD-message requirement, not a higher-voltage requirement |
+| DT / Type-C integration | I2C buses enabled, PMIC-GLINK/UCSI declared and bound, corresponding RPMsg endpoint absent, no Type-C ports |
+| Firmware or specific DT defect | Unproven |
+| Hardware acceptance of non-PD 5 V | Unverified |
+| Evidence | `/var/log/book4-wall-usb.zvxc81pe/` |
+
+- Follow-up: non-PD source detection, power-role validation, advertised current decoding through CC or BC1.2 as applicable
+- Charger limits: board current-sense scaling and safe input-current limit validation
+- Prohibited shortcut: removing the PD guard without a validated non-PD input path
+- Preserved policy: no firmware, DTB, PD-control or charging-helper changes during this check
+- Historical bus numbers below: resolve current adapters by physical controller address
+
 ## Bus map (exact)
 
 DSDT controller base addresses matched against the DT nodes:
@@ -56,10 +79,11 @@ write `0x14003a128(port, reg, buf)` -> `0x1400077e8(...)`. `uxth` confirms 16-bi
 
 ## Where the failure actually is
 
-The charger needs >17 V to charge a 17 V pack. The PDIC defaults to PDO 1 (5 V) and
-the host must request a higher PDO; `EmuEc` logs *"PDO is not selected yet by
-default"*. UEFI does this at boot; Linux never does. So after a live replug the link
-sits at 5 V forever and the charger has no usable input.
+- Historical PD observation: default PDO 1 at 5 V, missing Linux higher-PDO selection after replug
+- `EmuEc` log: `PDO is not selected yet by default`
+- Current helper: guarded higher-PDO requests implemented
+- Earlier claim of a required input above 17 V: unverified, not a measured hardware limit
+- Non-PD 5 V input: separate limitation described above
 
 Confirmed by writing the charger directly (i2c-12 0x09): ChargingVoltage `0x4358`
 and ChargingCurrent `0x0400` both stuck for 8 s with the battery still discharging;

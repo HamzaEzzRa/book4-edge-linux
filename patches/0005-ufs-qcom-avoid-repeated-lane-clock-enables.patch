@@ -1,0 +1,38 @@
+From: hamza <hamza@book4>
+Subject: [PATCH 5/5] ufs: qcom: avoid repeated lane clock enables
+
+ufs_qcom_setup_clocks() enables the lane clocks while bringing a link out
+of Hibern8, and ufs_qcom_resume() enables them again before the link state
+changes. The HCE enable notification also uses the same helper.
+
+The disable helper already uses is_lane_clks_enabled to release the clocks
+only once, but the enable helper takes a fresh reference on every call.
+Repeated resume cycles therefore leak clock references. In this tree the
+bulk list includes all controller clocks, including the reference clock.
+On the Book4 these counts grow into the hundreds and the reference-clock
+RPMh request remains enabled after device suspension.
+
+Make the enable helper idempotent, matching its disable counterpart.
+Keep the flag clear on enable failure so a later call can retry.
+
+The extracted helpers fail the clock-reference regression check before
+this change and pass afterward. The corrected module has booted, and a
+suspend-callback diagnostic verifies that its reference-clock sleep request
+clears. Power savings remain unmeasured.
+---
+ drivers/ufs/host/ufs-qcom.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/ufs/host/ufs-qcom.c b/drivers/ufs/host/ufs-qcom.c
+--- a/drivers/ufs/host/ufs-qcom.c
++++ b/drivers/ufs/host/ufs-qcom.c
+@@ -356,6 +356,9 @@ static int ufs_qcom_enable_lane_clks(struct ufs_qcom_host *host)
+ {
+ 	int err;
+ 
++	if (host->is_lane_clks_enabled)
++		return 0;
++
+ 	err = clk_bulk_prepare_enable(host->num_clks, host->clks);
+ 	if (err)
+ 		return err;
