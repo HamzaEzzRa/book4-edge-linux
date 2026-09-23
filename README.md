@@ -176,7 +176,8 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 - Post-probe QCE unload: crypto/PM-readiness, core callbacks and 21-minute real sleep passed, final DDR/UFS sleep requests zero
 - Short baseline: DDR D4 97.43% of APSS sleep, battery 51% → 50%, no precise energy comparison or CX/AOSS collapse
 - Clock-flag test: boot/core/camera and 38-minute real sleep passed, DDR D4 97.44%, battery 45% → 43%, no established energy benefit
-- Next test entry: **Arch Linux (PM test, no ignore_unused flags)**, only `pd_ignore_unused` removed relative to the verified clock-flag boot
+- Current test entry: **Arch Linux (PM test, no ignore_unused flags)**, boot/core/camera checks passed, real sleep pending
+- Domain-flag core check: native domain cleanup logged, sampled clocks and sleep requests unchanged, QCE restored
 - Clock-cleanup gap: five combined clock/domain providers register only the domain synchronization callback, clock cleanup skipped
 - Default `arch.conf`: older GPU-fixed fallback, unchanged
 - Current status: [suspend investigation](reports/suspend-investigation.md), full history archived separately
