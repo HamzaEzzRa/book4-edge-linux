@@ -35,7 +35,7 @@
 ```sh
 git clone https://github.com/zensanp/linux-book4-edge && cd linux-book4-edge
 git checkout 2685c75587ff
-git am ../patches/*.patch                 # Experimental patches 0006–0010
+git am ../patches/*.patch                 # Maintained series 0001–0006
 cp ../config/book4-edge.config .config && make olddefconfig
 make -j"$(nproc)" Image vmlinuz.efi modules dtbs
 sudo make modules_install
@@ -114,6 +114,8 @@ swh-plugins i2c-tools earlyoom iwd networkmanager bluez bluez-utils dtc
 - Early modules: display, storage, DSPs
 - Embedded files: DSP firmware
 - Rebuild required after firmware installation
+- Maintained PCIe test image: [UFS/CSI module package and preset](packaging/book4-pm-modules/README.md)
+- Test-image rebuild: `mkinitcpio -p book4-pm`, fixes selected from installed module overrides
 
 ```sh
 mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
@@ -143,6 +145,8 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 | `dts/` | Board file, BSD-3-Clause, header credits |
 | `config/` | Kernel config and option differences |
 | `driver/samsung-galaxybook-ec/` | ENE KB9058 over I2C, battery/AC/three temperatures/fan level, read-only default, out-of-tree or DKMS |
+| `driver/book4-sleep-votes/` | Version-specific cached suspend observer, private-layout check, no automatic loading |
+| `packaging/book4-pm-modules/` | Maintained UFS/CSI module overrides and initramfs preset |
 | `userspace/charging/` | S2MM006 PD and ISL9241 charging |
 | `userspace/memory/` | Half-RAM zstd zram, earlyoom, out-of-tree `zram-mod/build.sh` for kernels without ZRAM |
 | `userspace/audio/` | Samsung ALSA UCM, four-slot FL/RL/FR/RR mapping, measured EQ/limiter, echo cancellation |
@@ -162,15 +166,15 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 | 0004 | GPU power-down guard | Boot/resume verified, DDR frequency hold removed |
 | 0005 | UFS clock-reference guard | Boot/runtime-PM/callback verified, UFS sleep vote cleared, power benefit unmeasured |
 | 0006 | Camera-PHY probe reference removal | Boot and camera captures before/after real suspend verified, idle camera clocks released |
-| 0007 | DWC3/xHCI PHY ownership | Boot/ownership and empty-port USB-A runtime-PM verified, power savings unmeasured |
-| 0008 | QMP PIPE runtime-PM self-reference | Combo boot and both empty-port runtime-PM checks verified, system-suspend gap corrected by 0009 |
-| 0009 | QMP USB/combo system-suspend callbacks | Boot/callback checks passed with `auto` and `on`, 615 s real sleep passed with `on` and temporary QCE removal, energy benefit unresolved |
-| 0010 | Qualcomm host eUSB2 system-suspend clock release | Boot verified, suspend/wake untested, USB mode and resume-error handling under review |
+| `patches/experimental/usb/` 0007–0010 | USB ownership and PHY PM experiments | Excluded from maintained builds, unresolved mode/wake/error propagation, [review](patches/experimental/usb/README.md) |
 | `patches/debug/` | CSIPHY diagnostics | Present in verified kernel, not a fix |
 
-- Experimental module deployment: corrected UFS/CSI/QMP/eUSB2 modules in isolated test initramfs, installed root modules unchanged
-- Rebuilding a test image from the root module tree: corrected modules lost, not a reproducible production installation
-- Default `arch.conf`: older GPU-fixed fallback, manual selection of the experimental entry required
+- Maintained test deployment: packaged UFS/CSI overrides, ordinary preset rebuild verified, original USB drivers
+- Historical USB images: isolated snapshots, not maintained configurations
+- Next test entry: **Arch Linux (PM baseline, QCE off)**, both unused-clock flags retained
+- QCE opt-out: test entry only, common kernel crypto fallback checks passed, wider workload coverage pending
+- Default `arch.conf`: older GPU-fixed fallback, unchanged
+- Current status: [suspend investigation](reports/suspend-investigation.md), full history archived separately
 
 ### Charging constraints
 

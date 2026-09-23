@@ -1,0 +1,4 @@
+ALL_config="/etc/mkinitcpio-book4-pm.conf"
+ALL_kver="7.2.0-book4-pciepm"
+PRESETS=('default')
+default_image="/boot/initramfs-book4-pm.img"

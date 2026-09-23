@@ -1,0 +1,10 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = book4-pm-modules
+
+[Action]
+Description = Rebuilding the Book4 maintained test initramfs...
+When = PostTransaction
+Exec = /usr/bin/bash -c '/usr/bin/depmod 7.2.0-book4-pciepm && /usr/bin/mkinitcpio -p book4-pm'

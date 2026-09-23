@@ -7,6 +7,10 @@ import subprocess
 import sys
 import tempfile
 
+if len(sys.argv) != 2 or sys.argv[1] in ('-h', '--help'):
+    print(__doc__.strip(), file=sys.stderr)
+    sys.exit(0 if sys.argv[1:] in (['-h'], ['--help']) else 2)
+
 source = (Path(sys.argv[1]) / "drivers/ufs/host/ufs-qcom.c").read_text()
 start = source.index("static void ufs_qcom_disable_lane_clks(")
 stop = source.index("static int ufs_qcom_init_lane_clks(", start)

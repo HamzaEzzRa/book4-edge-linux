@@ -1,0 +1,36 @@
+# Maintained UFS/CSI fixes for the existing PCIe test kernel
+pkgname=book4-pm-modules
+pkgver=20260922
+pkgrel=1
+pkgdesc='Book4 UFS/CSI suspend fixes and rebuildable test initramfs'
+arch=('aarch64')
+license=('GPL-2.0-only')
+depends=('kmod' 'mkinitcpio')
+makedepends=('gcc' 'make' 'python')
+options=('!debug' '!strip')
+backup=('etc/mkinitcpio-book4-pm.conf' 'etc/mkinitcpio.d/book4-pm.preset')
+source=('book4-pm.conf' 'book4-pm.preset' '91-book4-pm.hook')
+sha256sums=('2dbc9b84c9e3bc0e83c4cfe30829d619799bf8d363c07adb3b2fd0024623f70d'
+            '306f339b44d2d1d938021ddd6de691fa42a63a4ca9c5f3c2f3540007a595dee7'
+            '293d4dc3f15b43f307dfbcc8d322ababc31ed9676e85b281ec5b174c512b5b9b')
+_krel=7.2.0-book4-pciepm
+_tree=${KERNEL_TREE:-/usr/lib/modules/$_krel/build}
+
+build() {
+    [[ $(make -s -C "$_tree" LOCALVERSION= kernelrelease) == "$_krel" ]]
+    python "$startdir/../../scripts/test-ufs-clocks.py" "$_tree"
+    python "$startdir/../../scripts/test-csiphy-clocks.py" "$_tree"
+    make -s -j2 -C "$_tree" LOCALVERSION= M=drivers/ufs/host ufs-qcom.ko
+    make -s -j2 -C "$_tree" LOCALVERSION= M=drivers/phy/qualcomm phy-qcom-mipi-csi2.ko
+}
+
+package() {
+    local module
+    for module in drivers/ufs/host/ufs-qcom.ko drivers/phy/qualcomm/phy-qcom-mipi-csi2.ko; do
+        [[ $(modinfo -F vermagic "$_tree/$module") == "$_krel "* ]]
+        install -Dm644 "$_tree/$module" "$pkgdir/usr/lib/modules/$_krel/updates/book4-pm/${module##*/}"
+    done
+    install -Dm644 book4-pm.conf "$pkgdir/etc/mkinitcpio-book4-pm.conf"
+    install -Dm644 book4-pm.preset "$pkgdir/etc/mkinitcpio.d/book4-pm.preset"
+    install -Dm644 91-book4-pm.hook "$pkgdir/usr/share/libalpm/hooks/91-book4-pm.hook"
+}

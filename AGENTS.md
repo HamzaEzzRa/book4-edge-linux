@@ -8,3 +8,4 @@
 
 - Automatic, reversible checks within the agreed scope: no confirmation prompts
 - Manual boot-menu selection, wake or peripheral interaction: request input
+- PM investigations: hold a temporary sleep inhibitor during automatic checks, release before coordinated suspend or manual handoff

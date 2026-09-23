@@ -16,11 +16,12 @@ Leave clock ownership to the existing power_on/power_off operations, which
 enable clocks before reading the hardware version and configuring lanes.
 The existing camera diagnostic patch does not add this probe enable.
 
-The original fails the probe-reference regression; the correction passes
-that check and the extracted power helpers pass repeated cycles and
-regulator, rate-setting and clock-enable failure/retry checks. Module build
-passes. Camera streaming, suspend behavior and power savings with the
-corrected driver are not yet hardware-tested.
+Validation:
+- Extracted-helper cycles and regulator/rate/clock failure checks passed
+- Native module build and boot passed
+- Camera captures before and after real suspend passed
+- Idle clock release after normal CCI autosuspend verified
+- Energy benefit unresolved
 ---
  drivers/phy/qualcomm/phy-qcom-mipi-csi2-core.c | 6 ------
  1 file changed, 6 deletions(-)

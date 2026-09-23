@@ -1,5 +1,5 @@
 From: hamza <hamza@book4>
-Subject: [PATCH 4/4] drm/msm/a6xx: fix inverted PDC sleep guard
+Subject: [PATCH 4/6] drm/msm/a6xx: fix inverted PDC sleep guard
 
 GMU_STATUS_FW_START records that firmware has initialized the registers
 needed for the PDC sleep sequence. Return when that flag is absent, not
@@ -9,7 +9,7 @@ The inverted guard skips normal GPU RSC shutdown after every firmware
 start and permits it before initialization or on a repeated stop. Fix the
 shared helper used by normal shutdown, force-off and resume error cleanup.
 
-The installed Book4 module contains this inverted branch. DDR residency
+The original Book4 module contains this inverted branch. DDR residency
 remains at 4224 MHz during suspend despite removal of the Linux GPU ICC
 vote. With this correction, boot and deep-suspend resume succeed and DDR
 spends essentially all suspension at 547 MHz instead. Linux sleep votes

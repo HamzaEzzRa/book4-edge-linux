@@ -9,6 +9,10 @@ import subprocess
 import sys
 import tempfile
 
+if len(sys.argv) != 2 or sys.argv[1] in ('-h', '--help'):
+    print(__doc__.strip(), file=sys.stderr)
+    sys.exit(0 if sys.argv[1:] in (['-h'], ['--help']) else 2)
+
 kernel = Path(sys.argv[1])
 usb = kernel / 'drivers/usb'
 phy = kernel / 'drivers/phy/qualcomm'

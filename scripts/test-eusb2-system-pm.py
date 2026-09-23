@@ -9,6 +9,10 @@ import subprocess
 import sys
 import tempfile
 
+if len(sys.argv) != 2 or sys.argv[1] in ('-h', '--help'):
+    print(__doc__.strip(), file=sys.stderr)
+    sys.exit(0 if sys.argv[1:] in (['-h'], ['--help']) else 2)
+
 source = (Path(sys.argv[1]) / 'drivers/phy/phy-snps-eusb2.c').read_text()
 probe = re.search(r'static int snps_eusb2_hsphy_probe\(.*?^}', source, re.M | re.S)[0]
 assert 'phy->phy = generic_phy;' in probe

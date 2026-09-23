@@ -8,6 +8,10 @@ import subprocess
 import sys
 import tempfile
 
+if len(sys.argv) != 2 or sys.argv[1] in ('-h', '--help'):
+    print(__doc__.strip(), file=sys.stderr)
+    sys.exit(0 if sys.argv[1:] in (['-h'], ['--help']) else 2)
+
 source = (Path(sys.argv[1]) / "drivers/phy/qualcomm/phy-qcom-mipi-csi2-core.c").read_text()
 probe = re.search(r"static int phy_qcom_mipi_csi2_probe\(.*?^}", source, re.M | re.S)[0]
 assert "clk_bulk_prepare_enable(" not in probe, "probe leaks an extra clock reference"

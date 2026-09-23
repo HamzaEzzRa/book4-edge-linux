@@ -1,7 +1,7 @@
 From cc4cd3e901f343f1eec0bebcf4cabb03f5a62027 Mon Sep 17 00:00:00 2001
 From: ciscobugger <xizko55@gmail.com>
 Date: Wed, 16 Sep 2026 05:19:22 +0200
-Subject: [PATCH 3/3] arm64: dts: qcom: add Samsung Galaxy Book4 Edge 15.6"
+Subject: [PATCH 3/6] arm64: dts: qcom: add Samsung Galaxy Book4 Edge 15.6"
  (NP750XQA)
 
 Snapdragon X Plus X1P42100 laptop. Derived from the X1E80100 Galaxy Book4
