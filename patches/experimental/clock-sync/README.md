@@ -1,6 +1,6 @@
 # Clock/domain synchronization candidate
 
-- Status: boot/core/camera verified, real sleep pending, excluded from maintained patches 0001–0006
+- Status: boot/core/short real sleep verified, energy benefit unresolved, excluded from maintained patches 0001–0006
 - Base: `2685c75587ff`, shared `drivers/clk/qcom/common.c`
 - Source-regression evidence: `/var/log/book4-clock-sync-fix.3Q99z4/`
 - Image-build and publication evidence: `/var/log/book4-clock-kernel.KFFCOc/`
@@ -10,7 +10,10 @@
 - Running kernel: candidate build verified by notes
 - Installed modules, initramfs, DTB and default/fallback: unchanged
 - Boot/core evidence: `/var/log/book4-clock-baseline.0PgY4A/`
-- Hardware coverage: native cleanup, core callbacks and camera recovery passed, real sleep and energy untested
+- Real-sleep evidence: `/var/log/book4-suspend-clock.qB0ZiX/`
+- QCE-loaded core evidence: `/var/log/book4-qce-loaded-core.mp3Myn/`
+- Hardware coverage: native cleanup, core callbacks, short real sleep and recovery passed
+- Energy benefit: unresolved, normal QCE-loaded overnight pending
 
 ## Mechanism
 
@@ -75,10 +78,22 @@ python3 scripts/test-qcom-cc-sync.py /path/to/patched/kernel
 - Sixteen checker negative controls and captured-result reproduction: passed
 - Native cleanup coverage: corrected, no energy-saving claim
 
+## Real sleep and normal QCE-loaded core
+
+- Real sleep with temporary QCE opt-out: APSS 590.117 s, success 1 → 2, failure 0
+- DDR D4/APSS: 97.43008%, no CX/AOSS entries
+- Final cached clock samples and RPMh requests/batches: match all three flag-only real sleeps
+- Battery: 96% → 96%, unresolved charge drop, no zero-watt claim
+- QCE/ICC, USB policy/counts, camera and Wi-Fi recovery: passed
+- Normal QCE-loaded core: success 2 → 3, failure 0, APSS unchanged
+- Loaded-core DDR requests: 393600/393600 kB/s, initialization floors zero, zero-vote goal false
+- Loaded-core generic crypto and device recovery: passed, 21 negative controls
+- Explicit QCE AF_ALG execution: excluded by native API mask, not a hardware execution test
+
 ## Remaining validation
 
-1. Coordinated real sleep and recovery
-2. Longer battery measurement, including normal QCE-loaded operation
+1. Normal QCE-loaded overnight drain and real-sleep recovery
+2. Longer matched energy comparison, cold hibernation remains separate
 
 - No live supplier synchronization or provider replacement
 - Source/model checks: no proof of hardware-access safety or energy savings
