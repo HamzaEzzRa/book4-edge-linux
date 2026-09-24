@@ -168,7 +168,7 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 | 0005 | UFS clock-reference guard | Boot/runtime-PM/callback verified, UFS sleep vote cleared, power benefit unmeasured |
 | 0006 | Camera-PHY probe reference removal | Boot and camera captures before/after real suspend verified, idle camera clocks released |
 | `patches/experimental/usb/` 0007–0010 | USB ownership and PHY PM experiments | Excluded from maintained builds, unresolved mode/wake/error propagation, [review](patches/experimental/usb/README.md) |
-| `patches/experimental/usb-rework/` | Hook-preserving ownership and local resume-error guards | Source/native objects and 20 mutation controls, no PHY clock gating or deployment, [candidate](patches/experimental/usb-rework/README.md) |
+| `patches/experimental/usb-rework/` | Hook-preserving ownership and local resume-error guards | Full kernel built/staged, four non-debug USB object changes, boot pending, no PHY clock gating, [candidate](patches/experimental/usb-rework/README.md) |
 | `patches/experimental/clock-sync/` | Clock/domain callback composition | Boot/core/short and overnight recovery passed, energy benefit unresolved, [candidate](patches/experimental/clock-sync/README.md) |
 | `patches/debug/` | CSIPHY diagnostics | Present in verified kernel, not a fix |
 
@@ -180,7 +180,8 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 - Short baseline: DDR D4 97.43% of APSS sleep, battery 51% → 50%, no precise energy comparison or CX/AOSS collapse
 - Clock-flag test: boot/core/camera and 38-minute real sleep passed, DDR D4 97.44%, battery 45% → 43%, no established energy benefit
 - Maintained no-flags reference: boot/core/camera and 20-minute real sleep passed
-- Current test: **Arch Linux (PM test, clock-domain sync)**, boot/core/short and overnight recovery passed, unchanged initramfs/DTB/modules
+- Running kernel: clock/domain candidate, boot/core/short and overnight recovery passed
+- Selected next test: **Arch Linux (PM test, USB ownership)**, built and staged, unchanged initramfs/DTB/modules and fallback
 - No-flags real sleep: DDR D4 97.44%, battery 40% → 39%, approximately 1.62 W from reported charge and endpoint voltages, no established energy benefit
 - Three-boot comparison: final sampled clocks and RPMh requests identical, no CX/AOSS collapse, QCE and original device policies restored
 - Clock-cleanup gap: corrected in the running candidate, six composite callbacks verified, previously missing native sweeps now logged
@@ -190,7 +191,8 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 - Same-candidate long QCE opt-out: 5h41m, battery 91% → 76%, approximately 1.61 W, DDR D4 97.43%, recovery passed
 - No established battery saving from QCE opt-out, no further overnight test scheduled
 - PCIe core diagnostic: native shutdown path recorded despite L2 timeout, downstream power-off not skipped, physical rails unmeasured
-- USB consumer rework: source/native checks passed, supplier-readiness gap blocks PHY clock gating, AC required for full kernel build
+- USB consumer rework: battery build authorized, 30% guard tested, full control/candidate validation passed, manual boot pending
+- Supplier-readiness gap: new PHY clock gating still excluded
 - Default `arch.conf`: older GPU-fixed fallback, unchanged
 - Current status: [suspend investigation](reports/suspend-investigation.md), full history archived separately
 

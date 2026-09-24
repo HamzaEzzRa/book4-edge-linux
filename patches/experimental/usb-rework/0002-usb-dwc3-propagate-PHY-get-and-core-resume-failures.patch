@@ -9,7 +9,8 @@ Subject: [PATCH 2/2] usb: dwc3: propagate PHY-get and core-resume failures
 - Known gap: active PHY child can hide a failed supplier resume
 - No new PHY clock gating, runtime policy or hibernation callbacks
 - Validation: local fault injection, retries, native objects, unchanged old field offsets
-- Experimental source candidate, no boot or hardware-fault validation
+- Full EFI build staged, four non-debug USB object changes
+- Experimental candidate, no boot or hardware-fault validation
 ---
 
 diff --git a/drivers/usb/dwc3/core.c b/drivers/usb/dwc3/core.c

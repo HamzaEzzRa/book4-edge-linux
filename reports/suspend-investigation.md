@@ -5,7 +5,7 @@
 - Maintained baseline: patches 0001–0006, native PCIe PM, original USB drivers
 - USB experiments 0007–0010: excluded from the maintained series and next test boot
 - USB blockers: [review findings](../patches/experimental/usb/README.md)
-- Hook-preserving USB ownership/local-error rework: [source candidate](../patches/experimental/usb-rework/README.md), no PHY clock gating or deployment
+- Hook-preserving USB ownership/local-error rework: [built/staged candidate](../patches/experimental/usb-rework/README.md), boot pending, no PHY clock gating
 - Original chronology and failures: [2026-09-20–22 archive](archive/suspend-2026-09-20-22.md)
 - Checkpoint including observer: `74f1210`
 - Deployment evidence: `/var/log/book4-review-fixes.5t5Ufq/`
@@ -26,6 +26,7 @@
 - Completed normal QCE-loaded overnight: `/var/log/book4-overnight-qce.uZgywz/`
 - Completed same-candidate long QCE opt-out: `/var/log/book4-overnight-noqce.NEvDTP/`
 - USB rework source/native checks: `/var/log/book4-usb-rework.dWCMR6/`
+- USB rework build/publication: `/var/log/book4-usb-build.vCO9zz/`
 - Unchanged-kernel PCIe callback diagnostic: `/var/log/book4-pcie-cache.GBGFdS/`
 
 ## Verified
@@ -104,7 +105,9 @@
 | Long opt-out battery | 91% → 76%, reported charge 3471 → 2925 mAh, approximately 1.612 W including 32.173 s awake settling |
 | Long opt-out recovery | QCE restored, 17 synchronized ICC providers, original USB policy/counts, generic crypto, Wi-Fi and camera passed, 16 negative controls |
 | Same-candidate energy comparison | Loaded approximately 1.574 W, opt-out approximately 1.612 W, no established energy saving or regression |
-| USB consumer rework | Original failures reproduced, five native objects per variant, 20 mutation controls, no hardware deployment |
+| USB consumer rework | Original failures reproduced, five native objects per variant, 20 mutation controls |
+| USB candidate build | Cached control reproduced, four non-debug USB object changes among 4,464 linked inputs, 13 debug-only changes |
+| USB candidate staging | EFI validated and nondefault test entry updated, default/fallback/modules/initramfs/DTB unchanged, boot pending |
 | PCIe cached shutdown | Five-second core check, success 5 → 6 / failure 0, native shutdown path recorded despite L2 timeout, downstream power-off not skipped |
 | PCIe diagnostic recovery | APSS unchanged, QCE loaded, 17 ICC providers synchronized, USB policy, camera, generic crypto and Wi-Fi passed |
 | QCE blacklist | `1700000.interconnect` unsynchronized, QCE only non-active consumer, global ICC initialization floors retained |
@@ -319,7 +322,7 @@
 - No trace-driver loading, forced synchronization, reference decrements or QMP writes
 - Existing QMI initialization and APM timeout messages: also present on the previous boot
 
-## USB consumer rework — source/native only
+## USB consumer rework — full build staged
 
 - Two patches under `patches/experimental/usb-rework/`, maintained series unchanged
 - Parent-owned PHY lifetime without `XHCI_SKIP_PHY_INIT`, root-hub hooks retained
@@ -335,7 +338,23 @@
 - Runtime-PM-disabled PHY: `-ENOTSUPP`, no supplier-readiness guarantee
 - Scope limit: reported DWC3 callback errors only, not permission to enable 0009/0010
 - Remaining gating work: supplier readiness, mode-aware wake, shared lifetime and mixed runtime/system transitions
-- Full link, boot, peripheral wake, hardware fault injection and energy: pending
+- Full link and EFI embedding: passed, cached build reused rather than a clean recompile
+- Control Image: equivalent to running clock candidate except verified kernel and vDSO GNU build IDs
+- Control ID: `005eb5f29962e165c715edd5c6f9d6eb626f5775`
+- Candidate ID: `1e24968b6e9d63b835a5fc12fdfc3689787d666b`
+- Linked inputs: 4,464, non-debug changes limited to USB `hcd.o`/`phy.o` and DWC3 `core.o`/`host.o`
+- Other changed inputs: 13 debug-only USB objects, debug-stripped comparisons passed
+- Header checks: 26,955, changes confined to `drivers/usb/core/phy.h` and `drivers/usb/dwc3/core.h`
+- Public/generated ABI headers, configuration and kernel exports unchanged, `MODVERSIONS` disabled
+- Battery build: explicit authorization, four jobs, tested 30%/invalid-telemetry stop, guard not triggered
+- EFI: `/boot/vmlinuz-book4-usbowner.efi`, 16,638,464 bytes
+- EFI SHA256: `963949ae82b3dc3e654a6a5f40dad11155c137f20964cd24e0ffe1312dc93d68`
+- Staging: existing test entry, title/kernel path only, exactly two Arch entries
+- Default/fallback, previous clock kernel, installed modules, initramfs, DTB and options preserved
+- Current-hash Windows checks passed, historical BCD/BCD.LOG/BOOTSTAT.DAT qualification unchanged
+- Controls: six candidate input/image failures, two-ID normalization, publication rollback/forbidden deltas and four boot-validator failures
+- Boot, peripheral wake, hardware fault injection and energy: pending
+- No reboot or suspend scheduled
 
 ## PCIe shutdown path — callback evidence
 
@@ -366,8 +385,8 @@
 
 ## Next tests
 
-1. AC-guarded control/candidate kernel build for ownership/local-error rework only, identity checks before publication
-2. Manual test-entry selection, original PHY drivers and `power/control=on`, boot/core/recovery before peripheral and wake checks
+1. Manual boot selection: `Arch Linux (PM test, USB ownership)`, expected kernel build ID and original module notes
+2. Original PHY drivers and `power/control=on`, boot/core/recovery before coordinated peripheral and wake checks
 3. Supplier-readiness and mode/lifetime corrections before any USB PHY clock gating
 4. GCC and physical PCIe rail/reference review, no inference from the L2 warning alone
 5. QCE request/PM lifetime review, no boot blacklist or assumed battery saving
