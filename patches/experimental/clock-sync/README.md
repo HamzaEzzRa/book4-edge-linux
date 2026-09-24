@@ -1,10 +1,14 @@
 # Clock/domain synchronization candidate
 
-- Status: offline candidate, excluded from maintained patches 0001–0006
+- Status: built and staged for manual boot, excluded from maintained patches 0001–0006
 - Base: `2685c75587ff`, shared `drivers/clk/qcom/common.c`
-- Evidence: `/var/log/book4-clock-sync-fix.3Q99z4/`
-- Running kernel, boot entries, installed modules and kernel worktree: unchanged
-- Native object build only, no new kernel image or hardware test
+- Source-regression evidence: `/var/log/book4-clock-sync-fix.3Q99z4/`
+- Image-build and publication evidence: `/var/log/book4-clock-kernel.KFFCOc/`
+- Clean source tree: `/home/hamza/Projects/linux-book4-clock-sync`
+- Candidate: `/boot/vmlinuz-book4-clksync.efi`
+- Test entry: **Arch Linux (PM test, clock-domain sync)**
+- Running kernel, installed modules, initramfs, DTB and default/fallback: unchanged
+- Hardware coverage: not booted, no callback, suspend, recovery or energy result
 
 ## Mechanism
 
@@ -37,14 +41,33 @@
 python3 scripts/test-qcom-cc-sync.py /path/to/patched/kernel
 ```
 
+## Image validation
+
+- Maintained 0001–0006 plus this candidate, original USB source
+- Clean control Image: identical to original apart from kernel and embedded-vDSO GNU build IDs
+- Metadata reproduction: original weak banner and empty built-in archive timestamps
+- Original one-ID comparison failure: retained, separate two-ID checker with code-byte and malformed-note rejection
+- Candidate delta: only `drivers/clk/qcom/common.o` among 4,464 linked input objects
+- Headers: 26,950 source headers and generated ABI headers identical
+- Configuration and kernel export table: identical
+- `CONFIG_MODVERSIONS`: disabled, no symbol-CRC assurance or vermagic-only claim
+- Native disassembly: clocks → domains, explicit ICC wrapper ICC → clocks → domains
+- Embedded compressed Image: verified against the built Image
+- Kernel build ID: `792e7ffafc2bc8093b384842a085067404d10c08`
+- EFI SHA256: `5d578e363ec9b479fe1fd1c986dac44bd75c10d987860f806fe5e01534115ceb`
+- Release: `7.2.0-book4-pciepm`, build notes required for identification
+- Cached callback inspector: rebuilt, not loaded
+- Publication controls: rollback and forbidden option/initramfs/DTB/kernel changes rejected
+- Boot controls: same boot, old loaded kernel, bad payload hash and old entry rejected
+- Historical Windows data/configuration differences: unchanged, full historical preservation still unproven
+
 ## Remaining validation
 
-1. Clean maintained-source kernel build and module-ABI checks, USB experiments excluded
-2. Manual test-entry boot, fallback and previous payloads preserved
-3. Runtime callback ownership, actual per-provider cleanup messages, QCE/ICC readiness
-4. Camera, USB, Wi-Fi, storage and five-second core diagnostic
-5. Coordinated real sleep and recovery
-6. Longer battery measurement, including normal QCE-loaded operation
+1. Manual test-entry boot, fallback and previous payloads preserved
+2. Runtime callback ownership, actual per-provider cleanup messages, QCE/ICC readiness
+3. Camera, USB, Wi-Fi, storage and five-second core diagnostic
+4. Coordinated real sleep and recovery
+5. Longer battery measurement, including normal QCE-loaded operation
 
 - No live supplier synchronization or provider replacement
 - Source/model checks: no proof of hardware-access safety or energy savings

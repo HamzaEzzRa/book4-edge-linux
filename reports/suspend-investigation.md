@@ -17,7 +17,8 @@
 - Domain-flag boot staging: `/var/log/book4-pd-unused.dAD5En/`
 - No-flags boot/core evidence: `/var/log/book4-pd-baseline.Q3WnGd/`
 - Completed no-flags real sleep: `/var/log/book4-suspend-pd.3fjith/`
-- Offline clock/domain candidate: `/var/log/book4-clock-sync-fix.3Q99z4/`, not installed
+- Clock/domain source candidate: `/var/log/book4-clock-sync-fix.3Q99z4/`
+- Clean candidate build and publication: `/var/log/book4-clock-kernel.KFFCOc/`, manual boot pending
 
 ## Verified
 
@@ -68,7 +69,10 @@
 | No-flags real recovery | QCE/ICC, original USB policies/counts, Wi-Fi and two discarded ten-frame camera captures passed |
 | Three-boot comparison | Final sampled clocks and complete RPMh requests/batches identical, DDR/UFS zero, XO 3/3, CX/AOSS entries zero |
 | Clock cleanup coverage | Native sweeps logged for some providers, five combined clock/domain providers retain `genpd_sync_state` only |
-| Offline clock/domain candidate | Shared callback composition, original regression reproduced, candidate and seven mutation controls passed, native object built, no image or hardware test |
+| Clock/domain source candidate | Shared callback composition, original regression reproduced, candidate and seven mutation controls passed |
+| Clean control build | Original Image reproduced except kernel and embedded-vDSO GNU build IDs, strict code-byte and malformed-note controls |
+| Candidate image | Only common.o changed among 4,464 linked input objects, 26,950 source headers and generated ABI headers identical, same configuration and kernel exports |
+| Candidate publication | New EFI payload, existing test entry reused, only kernel path/title changed, rollback and rejection controls passed, no new boot yet |
 | QCE blacklist | `1700000.interconnect` unsynchronized, QCE only non-active consumer, global ICC initialization floors retained |
 | Readiness guard | Rejects boot-time blacklist, passes temporary unload after successful probe and synchronization |
 | Windows preservation | BCD, BCD.LOG and BOOTSTAT.DAT changed across manual reboot, original failure retained, no writes or rollback to those files |
@@ -85,13 +89,20 @@
 - Existing CSI diagnostic code: retained in the tested module
 - Verified reference baseline: **Arch Linux (PM baseline, QCE probe first)**
 - Verified clock-only-change boot: **Arch Linux (PM test, no clk_ignore_unused)**
-- Current verified entry: **Arch Linux (PM test, no ignore_unused flags)**
+- Current running kernel: **Arch Linux (PM test, no ignore_unused flags)**, maintained configuration
+- Published next test: **Arch Linux (PM test, clock-domain sync)**
+- Candidate EFI: `/boot/vmlinuz-book4-clksync.efi`
+- Candidate build ID: `792e7ffafc2bc8093b384842a085067404d10c08`
+- Candidate entry backup: `/var/log/book4-clock-kernel.KFFCOc/entry-before.conf`
+- Candidate initramfs, DTB, options and installed modules: unchanged
+- Release string unchanged, build-ID notes required for build identity
 - Boot-time blacklist: absent, QCE probed normally
 - Validated QCE test sequence: probe, synchronize, verify no users, temporary unload, restore
 - Reference baseline: both `clk_ignore_unused` and `pd_ignore_unused` retained
 - Previous boot: `clk_ignore_unused` absent, `pd_ignore_unused` retained
 - Current boot: both options absent, only `pd_ignore_unused` changed relative to the previous boot
-- Kernel/initramfs/DTB and callback-conflict code: unchanged
+- Running kernel/initramfs/DTB and callback-conflict code: unchanged
+- Candidate: clock/domain composition compiled, no hardware result
 - Six sampled clock providers: `state_synced=1`, not proof of clock-cleanup execution
 - Clock cleanup: native count and `CLK_IGNORE_UNUSED` guards retained, no live clock gating
 - Default/fallback, executable bootloaders and historical kernel/initramfs images: unchanged
@@ -134,7 +145,7 @@
 - SOC resolution: approximately 1%, no established energy improvement or regression
 - Normal QCE-loaded overnight drain: not measured on this configuration
 
-## Offline clock/domain candidate
+## Clock/domain candidate — boot pending
 
 - Patch and boundaries: [experimental clock synchronization](../patches/experimental/clock-sync/README.md)
 - Default composition: clocks before domains, installed before either framework registers its callback
@@ -146,12 +157,24 @@
 - Candidate checks: shared driver, repeated setup, no-domain case, custom callbacks, ordering and ICC accounting
 - Seven broken variants rejected by runtime assertions
 - Native `common.o`: built against matching headers/config/compiler, exported symbol names unchanged, only new import `of_genpd_sync_state`
-- Scope: isolated source copy, no kernel image, installed file, entry or running callback changes
+- Clean tree: `/home/hamza/Projects/linux-book4-clock-sync`, maintained 0001–0006 plus candidate, original USB source
+- Image-build proof: original control Image identical except two verified GNU build IDs, only common.o changed for candidate
+- Module compatibility basis: matching headers/config/compiler/export table and isolated source/object delta
+- `CONFIG_MODVERSIONS`: disabled, no symbol-CRC assurance or release-only claim
+- Native disassembly: default clocks → domains, explicit ICC wrapper ICC → clocks → domains
+- Compressed EFI payload: built Image recovered and compared
+- Cached callback inspector: rebuilt against clean tree, not loaded
+- Publication: default/fallback and all previous payloads retained, exactly two Arch entries
+- Boot validator: rejects current boot, old loaded kernel, wrong payload hash and old entry
+- Build failures retained: private-reference permissions, pinned weak-banner metadata shifting rodata, non-recursive make `-o`, embedded-vDSO build ID and missing `modules_prepare`
+- Corrections: readable reference copies, separate metadata generation with tested recursive target freezing, explicit two-ID comparison and native module preparation
+- Original failed comparisons: retained, no broad data/code exclusions
+- Running callbacks: unchanged, candidate not booted
 
 ## Next tests
 
-1. Charger-connected clean maintained-source kernel build with the isolated clock/domain candidate
-2. Manual test-entry boot, callback ownership and cleanup logs, QCE/ICC readiness, device recovery and core diagnostic
+1. Manual boot into **Arch Linux (PM test, clock-domain sync)** with charger connected
+2. Verify kernel/module notes, callback ownership and cleanup logs, QCE/ICC readiness, device recovery and core diagnostic
 3. Coordinated real sleep and recovery after successful boot/core checks
 4. Overnight drain on the intended daily-use configuration, including normal QCE-loaded operation
 5. USB ownership/wake/error-path work with consumer-side recovery coverage
@@ -175,6 +198,7 @@
 - Hibernate: cold-resume reset stage unresolved
 - RTC alarm: unavailable, manual wake required
 - Latest coordinated sleep: planned ten minutes, manually ended after approximately 20 minutes 43 seconds
+- Additional uncontrolled sleeps: Sep 23 15:45:07–16:11:26 and 16:41:51–20:03:15, success 2 → 4 / failure 0, no controlled power measurement
 - Known warnings retained: PCIe L2 timeout, IRQ-affinity failures and Wi-Fi hwmon parent-sleep warning
 - No reboot scheduled, default/fallback unchanged
 - Earlier post-callback inhibitor race: preserved, corrected by waiting for logind sleep completion and verifying the owned inhibitor PID
