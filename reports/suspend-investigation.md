@@ -18,7 +18,9 @@
 - No-flags boot/core evidence: `/var/log/book4-pd-baseline.Q3WnGd/`
 - Completed no-flags real sleep: `/var/log/book4-suspend-pd.3fjith/`
 - Clock/domain source candidate: `/var/log/book4-clock-sync-fix.3Q99z4/`
-- Clean candidate build and publication: `/var/log/book4-clock-kernel.KFFCOc/`, manual boot pending
+- Clean candidate build and publication: `/var/log/book4-clock-kernel.KFFCOc/`
+- Candidate boot/core and callback ownership: `/var/log/book4-clock-baseline.0PgY4A/`
+- Prepared candidate real sleep: `/var/log/book4-suspend-clock.qB0ZiX/`, not scheduled
 
 ## Verified
 
@@ -68,11 +70,17 @@
 | No-flags real battery | 40% → 39%, 0.038 Ah, approximately 1.62 W including 32.172 s awake settling, energy difference unresolved |
 | No-flags real recovery | QCE/ICC, original USB policies/counts, Wi-Fi and two discarded ten-frame camera captures passed |
 | Three-boot comparison | Final sampled clocks and complete RPMh requests/batches identical, DDR/UFS zero, XO 3/3, CX/AOSS entries zero |
-| Clock cleanup coverage | Native sweeps logged for some providers, five combined clock/domain providers retain `genpd_sync_state` only |
+| Previous clock cleanup coverage | Five combined clock/domain providers retained `genpd_sync_state` only, missing their native clock sweeps |
 | Clock/domain source candidate | Shared callback composition, original regression reproduced, candidate and seven mutation controls passed |
 | Clean control build | Original Image reproduced except kernel and embedded-vDSO GNU build IDs, strict code-byte and malformed-note controls |
 | Candidate image | Only common.o changed among 4,464 linked input objects, 26,950 source headers and generated ABI headers identical, same configuration and kernel exports |
-| Candidate publication | New EFI payload, existing test entry reused, only kernel path/title changed, rollback and rejection controls passed, no new boot yet |
+| Candidate publication | New EFI payload, existing test entry reused, only kernel path/title changed, rollback and rejection controls passed |
+| Candidate boot | `c4e15e7d-2d37-4595-b418-6aef7e7e6f56`, expected kernel/module notes, original USB, 17 synchronized ICC providers |
+| Candidate clock cleanup | Six inspected providers use `qcom_cc_clk_genpd_sync_state`, native sweeps logged for all six, including the five previously missing providers |
+| Candidate core callback | Passed on battery, success 0 → 1 / failure 0, APSS unchanged, interval 6.905795 s / monotonic 1.903079 s |
+| Candidate core comparison | 216 handles, final clock samples and RPMh requests/batches match previous no-flags core, DDR/UFS zero, XO 3/3 |
+| Candidate recovery | QCE/ICC and original USB policy/counts restored, Wi-Fi connected, two discarded camera captures before/after passed |
+| Candidate controls | 16 negative controls and unchanged-input result reproduction passed, real-sleep checker preflight passed |
 | QCE blacklist | `1700000.interconnect` unsynchronized, QCE only non-active consumer, global ICC initialization floors retained |
 | Readiness guard | Rejects boot-time blacklist, passes temporary unload after successful probe and synchronization |
 | Windows preservation | BCD, BCD.LOG and BOOTSTAT.DAT changed across manual reboot, original failure retained, no writes or rollback to those files |
@@ -89,8 +97,8 @@
 - Existing CSI diagnostic code: retained in the tested module
 - Verified reference baseline: **Arch Linux (PM baseline, QCE probe first)**
 - Verified clock-only-change boot: **Arch Linux (PM test, no clk_ignore_unused)**
-- Current running kernel: **Arch Linux (PM test, no ignore_unused flags)**, maintained configuration
-- Published next test: **Arch Linux (PM test, clock-domain sync)**
+- Previous maintained boot: **Arch Linux (PM test, no ignore_unused flags)**
+- Current running test: **Arch Linux (PM test, clock-domain sync)**
 - Candidate EFI: `/boot/vmlinuz-book4-clksync.efi`
 - Candidate build ID: `792e7ffafc2bc8093b384842a085067404d10c08`
 - Candidate entry backup: `/var/log/book4-clock-kernel.KFFCOc/entry-before.conf`
@@ -99,11 +107,11 @@
 - Boot-time blacklist: absent, QCE probed normally
 - Validated QCE test sequence: probe, synchronize, verify no users, temporary unload, restore
 - Reference baseline: both `clk_ignore_unused` and `pd_ignore_unused` retained
-- Previous boot: `clk_ignore_unused` absent, `pd_ignore_unused` retained
-- Current boot: both options absent, only `pd_ignore_unused` changed relative to the previous boot
-- Running kernel/initramfs/DTB and callback-conflict code: unchanged
-- Candidate: clock/domain composition compiled, no hardware result
-- Six sampled clock providers: `state_synced=1`, not proof of clock-cleanup execution
+- Previous no-flags boot: flag-only comparison completed without the composition fix
+- Current boot: both options still absent, clock/domain composition added
+- Initramfs, DTB, options and installed modules: unchanged
+- Candidate: boot, native cleanup, core callbacks and camera recovery verified
+- Six sampled clock providers: `state_synced=1`, combined callback names and native sweep messages independently verified
 - Clock cleanup: native count and `CLK_IGNORE_UNUSED` guards retained, no live clock gating
 - Default/fallback, executable bootloaders and historical kernel/initramfs images: unchanged
 - Full historical preservation check: failed on three Windows data/configuration files, cause unconfirmed
@@ -115,7 +123,7 @@
 - Domain-flag staging controls: publication, validation-failure rollback, extra-option removal and old-boot/entry/flag rejection passed
 - Domain-flag boot validation: passed, historical Windows differences unchanged
 
-## Clock-cleanup coverage gap
+## Clock-cleanup gap in the previous kernel
 
 - Cached runtime callback inspection: GCC, GPUCC, CAMCC, DISPCC and VIDEOCC use `genpd_sync_state`
 - TCSRCC control: `clk_sync_state`, native clock-cleanup message present
@@ -127,7 +135,8 @@
 - `pd_ignore_unused`: guards the late unused-domain pass, not `of_genpd_sync_state()`
 - One-shot diagnostic: device locks and cached callback names only, no provider calls, no hardware writes, module unloaded
 - Source ordering and runtime callback names verified, source copies and checker in `/var/log/book4-clk-baseline.6DJROR/sync-owner/`
-- Running kernel and kernel worktree unchanged, no live supplier synchronization or power-saving claim
+- Original investigation: no live supplier synchronization or clock/domain source changes
+- Current candidate: combined callbacks and native clock sweeps verified, no power-saving claim
 - Four LDO cache entries differ from the earlier pre-camera core capture, complete requests match the camera-exercised real-sleep baseline
 
 ## Completed flag comparison
@@ -145,7 +154,7 @@
 - SOC resolution: approximately 1%, no established energy improvement or regression
 - Normal QCE-loaded overnight drain: not measured on this configuration
 
-## Clock/domain candidate — boot pending
+## Clock/domain candidate — real sleep pending
 
 - Patch and boundaries: [experimental clock synchronization](../patches/experimental/clock-sync/README.md)
 - Default composition: clocks before domains, installed before either framework registers its callback
@@ -163,20 +172,36 @@
 - `CONFIG_MODVERSIONS`: disabled, no symbol-CRC assurance or release-only claim
 - Native disassembly: default clocks → domains, explicit ICC wrapper ICC → clocks → domains
 - Compressed EFI payload: built Image recovered and compared
-- Cached callback inspector: rebuilt against clean tree, not loaded
+- Cached callback inspector: matching build, one-shot sample, independently unloaded, no provider calls
 - Publication: default/fallback and all previous payloads retained, exactly two Arch entries
-- Boot validator: rejects current boot, old loaded kernel, wrong payload hash and old entry
+- Boot validator: new boot accepted, old-boot/kernel/payload/entry rejection controls retained
 - Build failures retained: private-reference permissions, pinned weak-banner metadata shifting rodata, non-recursive make `-o`, embedded-vDSO build ID and missing `modules_prepare`
 - Corrections: readable reference copies, separate metadata generation with tested recursive target freezing, explicit two-ID comparison and native module preparation
 - Original failed comparisons: retained, no broad data/code exclusions
-- Running callbacks: unchanged, candidate not booted
+- Running callbacks: all six sampled controllers use `qcom_cc_clk_genpd_sync_state`
+- Core recovery: QCE restored, original USB policies/counts, camera and Wi-Fi passed
+- Final cached suspend state: identical to previous no-flags core
+- Awake-only differences: shared divided-XO count 15 → 16 and active a94000 I2C clocks
+- Unchanged cached counts: no proof that formerly unclaimed hardware gates were unchanged
+- No candidate real-sleep or energy result yet
+
+## Existing AOSS/QDSS deferral
+
+- AOSS `state_synced=0`, same 32 pending trace consumers logged on the previous no-flags boot
+- `CONFIG_CORESIGHT_TPDM` and `CONFIG_CORESIGHT_TPDA`: disabled
+- QDSS cached prepare/enable counts: 0/0
+- QDSS provider: prepare/unprepare commands, no `is_prepared` operation
+- CCF fallback: software prepare count, no inferred firmware clock state at count zero
+- Interpretation: synchronization deferral, not proof of a retained firmware sleep vote or drain cause
+- No trace-driver loading, forced synchronization, reference decrements or QMP writes
+- Existing QMI initialization and APM timeout messages: also present on the previous boot
 
 ## Next tests
 
-1. Manual boot into **Arch Linux (PM test, clock-domain sync)** with charger connected
-2. Verify kernel/module notes, callback ownership and cleanup logs, QCE/ICC readiness, device recovery and core diagnostic
-3. Coordinated real sleep and recovery after successful boot/core checks
-4. Overnight drain on the intended daily-use configuration, including normal QCE-loaded operation
+1. Coordinate ten-minute battery-only real sleep and manual wake on the candidate
+2. Verify recovery and compare cached state and independent firmware residency
+3. Overnight drain on the intended daily-use configuration, including normal QCE-loaded operation
+4. Read-only review of remaining USB, GCC, trace/QDSS and physical PCIe blockers
 5. USB ownership/wake/error-path work with consumer-side recovery coverage
 
 ## Boundaries

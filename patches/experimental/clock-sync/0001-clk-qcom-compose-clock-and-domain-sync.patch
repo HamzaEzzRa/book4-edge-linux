@@ -4,8 +4,8 @@ Scope: shared QCOM probe, default clock/domain callback
 Order: native clock cleanup before native domain synchronization
 Compatibility: early board-clock registration and explicit callbacks retained
 ICC: existing explicit providers only, no new synchronization counts
-Validation: source-fragment regression, seven mutations, native object and image builds
-Not validated: boot, suspend, recovery, energy
+Validation: source regression, seven mutations, native builds, boot, camera, core diagnostic
+Not validated: real deep suspend, energy, hibernation
 
 --- a/drivers/clk/qcom/common.c
 +++ b/drivers/clk/qcom/common.c

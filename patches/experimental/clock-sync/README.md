@@ -1,14 +1,16 @@
 # Clock/domain synchronization candidate
 
-- Status: built and staged for manual boot, excluded from maintained patches 0001–0006
+- Status: boot/core/camera verified, real sleep pending, excluded from maintained patches 0001–0006
 - Base: `2685c75587ff`, shared `drivers/clk/qcom/common.c`
 - Source-regression evidence: `/var/log/book4-clock-sync-fix.3Q99z4/`
 - Image-build and publication evidence: `/var/log/book4-clock-kernel.KFFCOc/`
 - Clean source tree: `/home/hamza/Projects/linux-book4-clock-sync`
 - Candidate: `/boot/vmlinuz-book4-clksync.efi`
 - Test entry: **Arch Linux (PM test, clock-domain sync)**
-- Running kernel, installed modules, initramfs, DTB and default/fallback: unchanged
-- Hardware coverage: not booted, no callback, suspend, recovery or energy result
+- Running kernel: candidate build verified by notes
+- Installed modules, initramfs, DTB and default/fallback: unchanged
+- Boot/core evidence: `/var/log/book4-clock-baseline.0PgY4A/`
+- Hardware coverage: native cleanup, core callbacks and camera recovery passed, real sleep and energy untested
 
 ## Mechanism
 
@@ -56,18 +58,27 @@ python3 scripts/test-qcom-cc-sync.py /path/to/patched/kernel
 - Kernel build ID: `792e7ffafc2bc8093b384842a085067404d10c08`
 - EFI SHA256: `5d578e363ec9b479fe1fd1c986dac44bd75c10d987860f806fe5e01534115ceb`
 - Release: `7.2.0-book4-pciepm`, build notes required for identification
-- Cached callback inspector: rebuilt, not loaded
+- Cached callback inspector: six composite callbacks verified, unloaded afterward
 - Publication controls: rollback and forbidden option/initramfs/DTB/kernel changes rejected
 - Boot controls: same boot, old loaded kernel, bad payload hash and old entry rejected
 - Historical Windows data/configuration differences: unchanged, full historical preservation still unproven
 
+## Boot and core result
+
+- Boot: `c4e15e7d-2d37-4595-b418-6aef7e7e6f56`
+- GCC/GPUCC/CAMCC/DISPCC/VIDEOCC/TCSRCC: composite callback and native clock-sweep messages verified
+- Core diagnostic: success 0 → 1, failure 0, APSS unchanged
+- Interval: 6.905795 s, monotonic: 1.903079 s, no real deep sleep
+- Final cached clocks and RPMh requests: identical to previous no-flags core
+- DDR/UFS: zero sleep requests, XO: 3/3
+- QCE/ICC, original USB policy/counts, Wi-Fi and discarded camera captures before/after: passed
+- Sixteen checker negative controls and captured-result reproduction: passed
+- Native cleanup coverage: corrected, no energy-saving claim
+
 ## Remaining validation
 
-1. Manual test-entry boot, fallback and previous payloads preserved
-2. Runtime callback ownership, actual per-provider cleanup messages, QCE/ICC readiness
-3. Camera, USB, Wi-Fi, storage and five-second core diagnostic
-4. Coordinated real sleep and recovery
-5. Longer battery measurement, including normal QCE-loaded operation
+1. Coordinated real sleep and recovery
+2. Longer battery measurement, including normal QCE-loaded operation
 
 - No live supplier synchronization or provider replacement
 - Source/model checks: no proof of hardware-access safety or energy savings
