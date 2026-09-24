@@ -63,9 +63,9 @@ sudo userspace/boot-splash/install.sh                  # Optional splash and msm
 
 ## Suspend and hibernate
 
-- Experimental suspend, QCE temporarily unloaded: 76% → 55% over 8 h 20 min, approximately 1.6 W
-- Clock/domain candidate, normal QCE loaded: 92% → 70% over 8 h 52 min, approximately 1.57 W, no DDR low-power residency
-- Historical versus candidate overnight: different configurations/SOC, no isolated energy attribution
+- Clock/domain candidate, QCE loaded: 92% → 70% over 8 h 52 min, approximately 1.57 W, no DDR low-power residency
+- Same candidate, temporary QCE unload: 91% → 76% over 5 h 41 min, approximately 1.61 W, DDR low-power residency 97.43%
+- QCE opt-out: residency improved, battery-drain improvement not demonstrated, unequal durations and gauge-estimate limits
 - Overnight battery suspend: unsafe for unattended use
 - Hibernate: working in-place `test_resume`, cold-resume dark screen and reset
 - Daily use: `systemctl poweroff`, hibernate disabled
@@ -186,7 +186,8 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 - Candidate real sleep: 9m50s, DDR D4 97.43%, cached clocks/RPMh requests unchanged, battery 96% → 96% below measurement resolution
 - Normal QCE-loaded core: recovery passed, DDR sleep request 393600/393600 kB/s, initialization floors zero
 - Normal QCE-loaded overnight: 8h52m, battery 92% → 70%, approximately 1.57 W, no DDR D4 or CX/AOSS entries, recovery passed
-- Same-candidate QCE-opt-out overnight: prepared, not scheduled, recharge and manual wake coordination required
+- Same-candidate long QCE opt-out: 5h41m, battery 91% → 76%, approximately 1.61 W, DDR D4 97.43%, recovery passed
+- No established battery saving from QCE opt-out, no further overnight test scheduled
 - Default `arch.conf`: older GPU-fixed fallback, unchanged
 - Current status: [suspend investigation](reports/suspend-investigation.md), full history archived separately
 

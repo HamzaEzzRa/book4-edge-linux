@@ -12,9 +12,10 @@
 - Boot/core evidence: `/var/log/book4-clock-baseline.0PgY4A/`
 - Real-sleep evidence: `/var/log/book4-suspend-clock.qB0ZiX/`
 - QCE-loaded core evidence: `/var/log/book4-qce-loaded-core.mp3Myn/`
-- Overnight evidence: `/var/log/book4-overnight-qce.uZgywz/`
-- Hardware coverage: native cleanup, core callbacks, short/overnight real sleep and recovery passed
-- Energy benefit: unresolved, normal QCE-loaded overnight approximately 1.57 W
+- Loaded overnight: `/var/log/book4-overnight-qce.uZgywz/`
+- Long QCE opt-out: `/var/log/book4-overnight-noqce.NEvDTP/`
+- Hardware coverage: native cleanup, core callbacks, short/long real sleep and recovery passed
+- Energy estimates: QCE loaded approximately 1.57 W, opt-out approximately 1.61 W, no established benefit
 
 ## Mechanism
 
@@ -104,10 +105,24 @@ python3 scripts/test-qcom-cc-sync.py /path/to/patched/kernel
 - Historical opt-out overnight: similar coarse watts, unmatched kernel/fixes/SOC/capacity
 - No isolated QCE or clock-composition energy claim
 
-## Remaining validation
+## Same-candidate long QCE opt-out
 
-1. Same-candidate QCE-opt-out overnight at a similar starting SOC
-2. Matched energy comparison, cold hibernation remains separate
+- APSS: 20445.660 s, approximately 5 h 41 min, success 4 → 5, failure 0
+- Battery: 91% → 76%, reported remaining charge 3471 → 2925 mAh
+- Energy estimate: approximately 1.612 W including 32.173 s awake settling
+- DDR D4/APSS: 97.42549%, ADSP sleep/APSS: 98.15485%, CX/AOSS entries zero
+- Final cached clocks and single RPMh requests: same as loaded overnight, bandwidth batches different
+- QCE restored, generic crypto, ICC, USB policies/counts, camera and Wi-Fi: passed
+- Sixteen negative controls and captured-result reproduction: passed
+- Reported full-charge capacity: same 3800 mAh in both long tests
+- Charge-now: remaining mAh, not reconstructed integer SOC
+- Unequal durations/SOC ranges, endpoint voltage estimate and gauge accuracy: comparison limits
+- No demonstrated energy benefit or regression from QCE opt-out
+
+## Remaining work
+
+1. Remaining USB/XO and physical PCIe collapse blockers
+2. Cold hibernation remains separate, no automatic promotion or further sleep scheduled
 
 - No live supplier synchronization or provider replacement
 - Source/model checks: no proof of hardware-access safety or energy savings
