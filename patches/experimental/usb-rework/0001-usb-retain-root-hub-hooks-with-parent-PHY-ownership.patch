@@ -1,0 +1,119 @@
+From: hamza <hamza@book4>
+Subject: [PATCH 1/2] usb: retain root-hub hooks with parent PHY ownership
+
+- DWC3 software property: parent owns generic-PHY init and power lifetime
+- Root-hub allocation, mode, calibration and notifications retained
+- No XHCI_SKIP_PHY_INIT, unchanged behavior without the software property
+- Property array: seven possible entries plus the zero terminator
+- Validation: extracted-helper regression, 100 cycles and native object builds
+- Experimental source candidate, no boot or peripheral-wake validation
+---
+
+diff --git a/drivers/usb/core/phy.c b/drivers/usb/core/phy.c
+--- a/drivers/usb/core/phy.c
++++ b/drivers/usb/core/phy.c
+@@ -17,7 +17,14 @@
+ struct usb_phy_roothub {
+ 	struct phy		*phy;
+ 	struct list_head	list;
++	bool			parent_owned;
+ };
++
++void usb_phy_roothub_set_parent_owned(struct usb_phy_roothub *phy_roothub)
++{
++	if (phy_roothub)
++		phy_roothub->parent_owned = true;
++}
+ 
+ /* Allocate the roothub_entry by specific name of phy */
+ static int usb_phy_roothub_add_phy_by_name(struct device *dev, const char *name,
+@@ -153,7 +160,7 @@
+ 	struct list_head *head;
+ 	int err;
+ 
+-	if (!phy_roothub)
++	if (!phy_roothub || phy_roothub->parent_owned)
+ 		return 0;
+ 
+ 	head = &phy_roothub->list;
+@@ -180,7 +187,7 @@
+ 	struct list_head *head;
+ 	int err, ret = 0;
+ 
+-	if (!phy_roothub)
++	if (!phy_roothub || phy_roothub->parent_owned)
+ 		return 0;
+ 
+ 	head = &phy_roothub->list;
+@@ -302,7 +309,7 @@
+ 	struct list_head *head;
+ 	int err;
+ 
+-	if (!phy_roothub)
++	if (!phy_roothub || phy_roothub->parent_owned)
+ 		return 0;
+ 
+ 	head = &phy_roothub->list;
+@@ -327,7 +334,7 @@
+ {
+ 	struct usb_phy_roothub *roothub_entry;
+ 
+-	if (!phy_roothub)
++	if (!phy_roothub || phy_roothub->parent_owned)
+ 		return;
+ 
+ 	list_for_each_entry_reverse(roothub_entry, &phy_roothub->list, list)
+diff --git a/drivers/usb/core/phy.h b/drivers/usb/core/phy.h
+--- a/drivers/usb/core/phy.h
++++ b/drivers/usb/core/phy.h
+@@ -14,6 +14,7 @@
+ struct usb_phy_roothub *usb_phy_roothub_alloc(struct device *dev);
+ struct usb_phy_roothub *usb_phy_roothub_alloc_usb3_phy(struct device *dev);
+ 
++void usb_phy_roothub_set_parent_owned(struct usb_phy_roothub *phy_roothub);
+ int usb_phy_roothub_init(struct usb_phy_roothub *phy_roothub);
+ int usb_phy_roothub_exit(struct usb_phy_roothub *phy_roothub);
+ 
+diff --git a/drivers/usb/core/hcd.c b/drivers/usb/core/hcd.c
+--- a/drivers/usb/core/hcd.c
++++ b/drivers/usb/core/hcd.c
+@@ -28,6 +28,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/workqueue.h>
+ #include <linux/pm_runtime.h>
++#include <linux/property.h>
+ #include <linux/types.h>
+ #include <linux/genalloc.h>
+ #include <linux/io.h>
+@@ -2823,6 +2824,9 @@
+ 				return PTR_ERR(hcd->phy_roothub);
+ 		}
+ 
++		if (device_property_read_bool(hcd->self.controller, "usb-phy-parent-owned"))
++			usb_phy_roothub_set_parent_owned(hcd->phy_roothub);
++
+ 		retval = usb_phy_roothub_init(hcd->phy_roothub);
+ 		if (retval)
+ 			return retval;
+diff --git a/drivers/usb/dwc3/host.c b/drivers/usb/dwc3/host.c
+--- a/drivers/usb/dwc3/host.c
++++ b/drivers/usb/dwc3/host.c
+@@ -129,7 +129,7 @@
+ 
+ int dwc3_host_init(struct dwc3 *dwc)
+ {
+-	struct property_entry	props[6];
++	struct property_entry	props[8];
+ 	struct platform_device	*xhci;
+ 	int			ret, irq;
+ 	int			prop_idx = 0;
+@@ -162,6 +162,9 @@
+ 	}
+ 
+ 	memset(props, 0, sizeof(struct property_entry) * ARRAY_SIZE(props));
++
++	/* DWC3 owns PHY lifetime, root hubs retain mode and calibration hooks */
++	props[prop_idx++] = PROPERTY_ENTRY_BOOL("usb-phy-parent-owned");
+ 
+ 	props[prop_idx++] = PROPERTY_ENTRY_BOOL("xhci-sg-trb-cache-size-quirk");
+ 

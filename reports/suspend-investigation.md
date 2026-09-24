@@ -5,6 +5,7 @@
 - Maintained baseline: patches 0001–0006, native PCIe PM, original USB drivers
 - USB experiments 0007–0010: excluded from the maintained series and next test boot
 - USB blockers: [review findings](../patches/experimental/usb/README.md)
+- Hook-preserving USB ownership/local-error rework: [source candidate](../patches/experimental/usb-rework/README.md), no PHY clock gating or deployment
 - Original chronology and failures: [2026-09-20–22 archive](archive/suspend-2026-09-20-22.md)
 - Checkpoint including observer: `74f1210`
 - Deployment evidence: `/var/log/book4-review-fixes.5t5Ufq/`
@@ -24,6 +25,8 @@
 - Normal QCE-loaded core: `/var/log/book4-qce-loaded-core.mp3Myn/`
 - Completed normal QCE-loaded overnight: `/var/log/book4-overnight-qce.uZgywz/`
 - Completed same-candidate long QCE opt-out: `/var/log/book4-overnight-noqce.NEvDTP/`
+- USB rework source/native checks: `/var/log/book4-usb-rework.dWCMR6/`
+- Unchanged-kernel PCIe callback diagnostic: `/var/log/book4-pcie-cache.GBGFdS/`
 
 ## Verified
 
@@ -86,7 +89,7 @@
 | Candidate controls | 16 negative controls and unchanged-input result reproduction passed, real-sleep checkers reproduced captured results |
 | Candidate real sleep | APSS 590.117 s, interval 591.986 s / monotonic 1.860 s, success 1 → 2 / failure 0 |
 | Candidate real DDR | D4 574.952 s, 97.43008% of APSS, independent DDR sleep record 574.493 s, CX/AOSS entries zero |
-| Candidate real battery | 96% → 96%, unresolved at approximately 1% resolution, no watt estimate, 32.184 s awake settling |
+| Candidate real battery | 96% → 96%, reported charge unchanged, no watt estimate, 32.184 s awake settling |
 | Candidate real comparison | Final clock samples and complete RPMh requests/batches match all three flag-only sleeps |
 | Candidate real recovery | QCE restored, 17 synchronized ICC providers, USB policy/counts, Wi-Fi and two discarded camera captures passed |
 | Normal QCE-loaded core | Success 2 → 3 / failure 0, APSS unchanged, interval 6.814513 s / monotonic 1.813856 s |
@@ -101,6 +104,9 @@
 | Long opt-out battery | 91% → 76%, reported charge 3471 → 2925 mAh, approximately 1.612 W including 32.173 s awake settling |
 | Long opt-out recovery | QCE restored, 17 synchronized ICC providers, original USB policy/counts, generic crypto, Wi-Fi and camera passed, 16 negative controls |
 | Same-candidate energy comparison | Loaded approximately 1.574 W, opt-out approximately 1.612 W, no established energy saving or regression |
+| USB consumer rework | Original failures reproduced, five native objects per variant, 20 mutation controls, no hardware deployment |
+| PCIe cached shutdown | Five-second core check, success 5 → 6 / failure 0, native shutdown path recorded despite L2 timeout, downstream power-off not skipped |
+| PCIe diagnostic recovery | APSS unchanged, QCE loaded, 17 ICC providers synchronized, USB policy, camera, generic crypto and Wi-Fi passed |
 | QCE blacklist | `1700000.interconnect` unsynchronized, QCE only non-active consumer, global ICC initialization floors retained |
 | Readiness guard | Rejects boot-time blacklist, passes temporary unload after successful probe and synchronization |
 | Windows preservation | BCD, BCD.LOG and BOOTSTAT.DAT changed across manual reboot, original failure retained, no writes or rollback to those files |
@@ -313,13 +319,60 @@
 - No trace-driver loading, forced synchronization, reference decrements or QMP writes
 - Existing QMI initialization and APM timeout messages: also present on the previous boot
 
+## USB consumer rework — source/native only
+
+- Two patches under `patches/experimental/usb-rework/`, maintained series unchanged
+- Parent-owned PHY lifetime without `XHCI_SKIP_PHY_INIT`, root-hub hooks retained
+- Host PHY gets before register access, successful gets unwound on failure
+- DWC3 system-suspend marker: xHCI resume and completion blocked after failed core resume
+- Native objects: USB `phy.o`/`hcd.o`, DWC3 `core.o`/`host.o`/`dwc3-qcom.o`, before and candidate
+- Existing DWC3 field offsets and size unchanged, new flag in padding, stripped Qualcomm glue object identical
+- Extracted-helper tests: original failures reproduced, 100 cycles, null/unsupported PHYs, positive returns, modeled get failures and retries
+- Mutation controls: 18 native assertion failures, two property-wiring/terminator failures
+- Isolated source tree: `/home/hamza/Projects/linux-book4-usb-rework`, exact tested patch bodies
+- Supplier counterexample: runtime-active PHY child returns 1 before provider resume, zero parent resume attempts
+- System prepare reference: can keep PHY child active, failed supplier resume not necessarily visible through the get result
+- Runtime-PM-disabled PHY: `-ENOTSUPP`, no supplier-readiness guarantee
+- Scope limit: reported DWC3 callback errors only, not permission to enable 0009/0010
+- Remaining gating work: supplier readiness, mode-aware wake, shared lifetime and mixed runtime/system transitions
+- Full link, boot, peripheral wake, hardware fault injection and energy: pending
+
+## PCIe shutdown path — callback evidence
+
+- Unchanged clock/domain kernel, original USB, QCE loaded throughout
+- Test: five-second `pm_test=core`, success 5 → 6 / failure 0
+- Interval: 6.915247 s, monotonic: 1.912554 s, APSS unchanged
+- Observer: cached fields only, matching kernel notes and native private-prefix/field-offset checks
+- Preflight: load/unload passed, no controller or PHY register access
+- Independent post-capture load: live observer build-ID notes match, module file hash unchanged
+
+| Phase | Controller suspended | Skip downstream power-off | Skip L2 wait |
+|---|---:|---:|---:|
+| Awake | 0 | 0 | 0 |
+| Final suspend | 1 | 0 | 0 |
+| Early syscore resume | 1 | 0 | 0 |
+| Awake after cleanup | 0 | 0 | 0 |
+
+- Callback owner: `qcom_pcie_host_deinit`
+- DesignWare timeout: nonfatal, continuation through link stop and host deinit
+- Qualcomm deinit: PERST assertion, downstream power-off call, PHY power-off and controller deinit
+- Recorded state: shutdown path completed, PME-dependent downstream power-off skip not selected
+- Not established: physical rail collapse, PHY reference ownership, real-sleep power or PCIe drain attribution
+- Recovery: QCE/ICC, original USB policies, camera, generic crypto and Wi-Fi passed
+- Checkers: 21 existing controls, four PCIe outcomes accepted, eight malformed/inconsistent captures rejected
+- Cached awake/final clocks and full RPMh requests/batches: identical to the earlier QCE-loaded core
+- DDR: 393600/393600 kB/s, zero-vote goal false, no energy measurement
+- Observer and temporary hook removed, `pm_test=none`, nothing scheduled
+
 ## Next tests
 
-1. Read-only review of remaining USB/XO, GCC and physical PCIe collapse blockers
-2. USB ownership/mode/wake/error-path work with consumer-side recovery coverage before hardware testing
-3. QCE request/PM lifetime review, no boot blacklist or assumed battery saving
-4. Further real-sleep tests only for a distinct candidate or hypothesis, manual wake required
-5. Cold-hibernation reset investigation remains separate
+1. AC-guarded control/candidate kernel build for ownership/local-error rework only, identity checks before publication
+2. Manual test-entry selection, original PHY drivers and `power/control=on`, boot/core/recovery before peripheral and wake checks
+3. Supplier-readiness and mode/lifetime corrections before any USB PHY clock gating
+4. GCC and physical PCIe rail/reference review, no inference from the L2 warning alone
+5. QCE request/PM lifetime review, no boot blacklist or assumed battery saving
+6. Further real sleep only for a distinct candidate or hypothesis, manual wake required
+7. Cold-hibernation reset investigation remains separate
 
 ## Boundaries
 
@@ -335,7 +388,7 @@
 - Original strict power checker: unchanged, separate outcome checker verifies failed goal and successful recovery
 - Clock/domain flags: suspects, no measured benefit yet
 - USB source/mock checks: no peripheral-wake or consumer-resume safety proof
-- PCIe: physical L2-entry timeout unresolved despite logical D3 and DDR vote release
+- PCIe: L2 timeout persists, native shutdown path observed in a core diagnostic, physical rails unmeasured
 - QCE opt-out: workaround, not a driver PM fix
 - Hibernate: cold-resume reset stage unresolved
 - RTC alarm: unavailable, manual wake required

@@ -1,0 +1,129 @@
+From: hamza <hamza@book4>
+Subject: [PATCH 2/2] usb: dwc3: propagate PHY-get and core-resume failures
+
+- Host PHY runtime gets before register access, successful gets unwound on error
+- ENOTSUPP preserved for PHYs without runtime PM, positive returns accepted
+- System-suspend marker cleared only after successful DWC3 core resume
+- xHCI resume quirk and DWC3 completion reject an unrestored core
+- Scope: DWC3 callback status, not physical PHY supplier readiness
+- Known gap: active PHY child can hide a failed supplier resume
+- No new PHY clock gating, runtime policy or hibernation callbacks
+- Validation: local fault injection, retries, native objects, unchanged old field offsets
+- Experimental source candidate, no boot or hardware-fault validation
+---
+
+diff --git a/drivers/usb/dwc3/core.c b/drivers/usb/dwc3/core.c
+--- a/drivers/usb/dwc3/core.c
++++ b/drivers/usb/dwc3/core.c
+@@ -2570,6 +2570,17 @@
+ 			dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_HOST, true);
+ 			break;
+ 		}
++		for (i = 0; i < dwc->num_usb2_ports; i++) {
++			ret = phy_pm_runtime_get_sync(dwc->usb2_generic_phy[i]);
++			if (ret < 0 && ret != -ENOTSUPP)
++				goto err_put_usb2;
++		}
++		for (i = 0; i < dwc->num_usb3_ports; i++) {
++			ret = phy_pm_runtime_get_sync(dwc->usb3_generic_phy[i]);
++			if (ret < 0 && ret != -ENOTSUPP)
++				goto err_put_usb3;
++		}
++
+ 		/* Restore GUSB2PHYCFG bits that were modified in suspend */
+ 		for (i = 0; i < dwc->num_usb2_ports; i++) {
+ 			reg = dwc3_readl(dwc, DWC3_GUSB2PHYCFG(i));
+@@ -2582,10 +2593,6 @@
+ 			dwc3_writel(dwc, DWC3_GUSB2PHYCFG(i), reg);
+ 		}
+ 
+-		for (i = 0; i < dwc->num_usb2_ports; i++)
+-			phy_pm_runtime_get_sync(dwc->usb2_generic_phy[i]);
+-		for (i = 0; i < dwc->num_usb3_ports; i++)
+-			phy_pm_runtime_get_sync(dwc->usb3_generic_phy[i]);
+ 		break;
+ 	case DWC3_GCTL_PRTCAP_OTG:
+ 		/* nothing to do on runtime_resume */
+@@ -2617,6 +2624,16 @@
+ 	}
+ 
+ 	return 0;
++
++err_put_usb3:
++	while (--i >= 0)
++		phy_pm_runtime_put_sync(dwc->usb3_generic_phy[i]);
++	i = dwc->num_usb2_ports;
++err_put_usb2:
++	while (--i >= 0)
++		phy_pm_runtime_put_sync(dwc->usb2_generic_phy[i]);
++
++	return ret;
+ }
+ 
+ static int dwc3_runtime_checks(struct dwc3 *dwc)
+@@ -2726,6 +2743,7 @@
+ 	if (ret)
+ 		return ret;
+ 
++	dwc->pm_suspended = true;
+ 	pinctrl_pm_select_sleep_state(dev);
+ 
+ 	return 0;
+@@ -2747,6 +2765,8 @@
+ 	ret = dwc3_resume_common(dwc, PMSG_RESUME);
+ 	if (ret)
+ 		pm_runtime_set_suspended(dev);
++	else
++		dwc->pm_suspended = false;
+ 
+ out:
+ 	pm_runtime_enable(dev);
+@@ -2758,6 +2778,9 @@
+ void dwc3_pm_complete(struct dwc3 *dwc)
+ {
+ 	u32		reg;
++
++	if (dwc->pm_suspended)
++		return;
+ 
+ 	if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST &&
+ 			dwc->dis_split_quirk) {
+diff --git a/drivers/usb/dwc3/core.h b/drivers/usb/dwc3/core.h
+--- a/drivers/usb/dwc3/core.h
++++ b/drivers/usb/dwc3/core.h
+@@ -1067,6 +1067,7 @@
+  * @usb3_generic_phy: pointer to array of USB3 PHYs
+  * @num_usb2_ports: number of USB2 ports
+  * @num_usb3_ports: number of USB3 ports
++ * @pm_suspended: system suspend completed without a successful core resume
+  * @phys_ready: flag to indicate that PHYs are ready
+  * @ulpi: pointer to ulpi interface
+  * @ulpi_ready: flag to indicate that ULPI is initialized
+@@ -1234,6 +1235,7 @@
+ 	u8			num_usb3_ports;
+ 
+ 	bool			phys_ready;
++	bool			pm_suspended;
+ 
+ 	struct ulpi		*ulpi;
+ 	bool			ulpi_ready;
+diff --git a/drivers/usb/dwc3/host.c b/drivers/usb/dwc3/host.c
+--- a/drivers/usb/dwc3/host.c
++++ b/drivers/usb/dwc3/host.c
+@@ -77,8 +77,16 @@
+ 	dwc3_enable_susphy(dwc, true);
+ }
+ 
++static int dwc3_xhci_resume_quirk(struct usb_hcd *hcd)
++{
++	struct dwc3 *dwc = dev_get_drvdata(hcd->self.controller->parent);
++
++	return dwc->pm_suspended ? -EHOSTDOWN : 0;
++}
++
+ static const struct xhci_plat_priv dwc3_xhci_plat_quirk = {
+ 	.plat_start = dwc3_xhci_plat_start,
++	.resume_quirk = dwc3_xhci_resume_quirk,
+ };
+ 
+ static void dwc3_host_fill_xhci_irq_res(struct dwc3 *dwc,

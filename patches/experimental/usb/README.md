@@ -15,5 +15,7 @@
 - DWC3 `dwc3_resume_common()`: ignored `phy_pm_runtime_get_sync()` results, register access before PHY runtime gets
 - PM core: supplier resume errors do not automatically block consumers
 - Required USB correction: ownership without lost hooks, mode-preserving wake setup, consumer-side error recovery
+- Partial rework: [ownership and local-error source candidate](../usb-rework/README.md), no PHY clock gating or deployment
+- Additional blocker: runtime-active PHY child can hide failed provider resume, get-result checking alone insufficient
 - No blind `SYSTEM_SLEEP_PM_OPS()` substitution: additional hibernation behavior
 - Maintained baseline: patches 0001–0006, original USB drivers, native PCIe PM

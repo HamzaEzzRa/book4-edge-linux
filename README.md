@@ -168,6 +168,7 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 | 0005 | UFS clock-reference guard | Boot/runtime-PM/callback verified, UFS sleep vote cleared, power benefit unmeasured |
 | 0006 | Camera-PHY probe reference removal | Boot and camera captures before/after real suspend verified, idle camera clocks released |
 | `patches/experimental/usb/` 0007–0010 | USB ownership and PHY PM experiments | Excluded from maintained builds, unresolved mode/wake/error propagation, [review](patches/experimental/usb/README.md) |
+| `patches/experimental/usb-rework/` | Hook-preserving ownership and local resume-error guards | Source/native objects and 20 mutation controls, no PHY clock gating or deployment, [candidate](patches/experimental/usb-rework/README.md) |
 | `patches/experimental/clock-sync/` | Clock/domain callback composition | Boot/core/short and overnight recovery passed, energy benefit unresolved, [candidate](patches/experimental/clock-sync/README.md) |
 | `patches/debug/` | CSIPHY diagnostics | Present in verified kernel, not a fix |
 
@@ -180,14 +181,16 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 - Clock-flag test: boot/core/camera and 38-minute real sleep passed, DDR D4 97.44%, battery 45% → 43%, no established energy benefit
 - Maintained no-flags reference: boot/core/camera and 20-minute real sleep passed
 - Current test: **Arch Linux (PM test, clock-domain sync)**, boot/core/short and overnight recovery passed, unchanged initramfs/DTB/modules
-- No-flags real sleep: DDR D4 97.44%, battery 40% → 39%, approximately 1.62 W from coarse SOC endpoints, no established energy benefit
+- No-flags real sleep: DDR D4 97.44%, battery 40% → 39%, approximately 1.62 W from reported charge and endpoint voltages, no established energy benefit
 - Three-boot comparison: final sampled clocks and RPMh requests identical, no CX/AOSS collapse, QCE and original device policies restored
 - Clock-cleanup gap: corrected in the running candidate, six composite callbacks verified, previously missing native sweeps now logged
-- Candidate real sleep: 9m50s, DDR D4 97.43%, cached clocks/RPMh requests unchanged, battery 96% → 96% below measurement resolution
+- Candidate real sleep: 9m50s, DDR D4 97.43%, cached clocks/RPMh requests unchanged, battery 96% → 96%, reported charge unchanged, drain unresolved
 - Normal QCE-loaded core: recovery passed, DDR sleep request 393600/393600 kB/s, initialization floors zero
 - Normal QCE-loaded overnight: 8h52m, battery 92% → 70%, approximately 1.57 W, no DDR D4 or CX/AOSS entries, recovery passed
 - Same-candidate long QCE opt-out: 5h41m, battery 91% → 76%, approximately 1.61 W, DDR D4 97.43%, recovery passed
 - No established battery saving from QCE opt-out, no further overnight test scheduled
+- PCIe core diagnostic: native shutdown path recorded despite L2 timeout, downstream power-off not skipped, physical rails unmeasured
+- USB consumer rework: source/native checks passed, supplier-readiness gap blocks PHY clock gating, AC required for full kernel build
 - Default `arch.conf`: older GPU-fixed fallback, unchanged
 - Current status: [suspend investigation](reports/suspend-investigation.md), full history archived separately
 
