@@ -1,6 +1,6 @@
 # Clock/domain synchronization candidate
 
-- Status: boot/core/short real sleep verified, energy benefit unresolved, excluded from maintained patches 0001–0006
+- Status: boot/core/short and overnight recovery verified, energy benefit unresolved, excluded from maintained patches 0001–0006
 - Base: `2685c75587ff`, shared `drivers/clk/qcom/common.c`
 - Source-regression evidence: `/var/log/book4-clock-sync-fix.3Q99z4/`
 - Image-build and publication evidence: `/var/log/book4-clock-kernel.KFFCOc/`
@@ -12,8 +12,9 @@
 - Boot/core evidence: `/var/log/book4-clock-baseline.0PgY4A/`
 - Real-sleep evidence: `/var/log/book4-suspend-clock.qB0ZiX/`
 - QCE-loaded core evidence: `/var/log/book4-qce-loaded-core.mp3Myn/`
-- Hardware coverage: native cleanup, core callbacks, short real sleep and recovery passed
-- Energy benefit: unresolved, normal QCE-loaded overnight pending
+- Overnight evidence: `/var/log/book4-overnight-qce.uZgywz/`
+- Hardware coverage: native cleanup, core callbacks, short/overnight real sleep and recovery passed
+- Energy benefit: unresolved, normal QCE-loaded overnight approximately 1.57 W
 
 ## Mechanism
 
@@ -90,10 +91,23 @@ python3 scripts/test-qcom-cc-sync.py /path/to/patched/kernel
 - Loaded-core generic crypto and device recovery: passed, 21 negative controls
 - Explicit QCE AF_ALG execution: excluded by native API mask, not a hardware execution test
 
+## Normal QCE-loaded overnight
+
+- APSS: 31907.889 s, success 3 → 4, failure 0
+- Battery: 92% → 70%, approximately 1.574 W including awake settling
+- DDR: no D4 residency or sleep entries, almost entirely 547 MHz
+- DDR sleep request: 393600/393600 kB/s, zero-vote and low-power goals false
+- CX/AOSS entries: zero
+- ADSP sleep/APSS: 84.899%, different from the short opt-out test
+- Cached suspend state: matches QCE-loaded core
+- QCE/ICC, USB policy/counts, generic crypto, Wi-Fi and camera recovery: passed
+- Historical opt-out overnight: similar coarse watts, unmatched kernel/fixes/SOC/capacity
+- No isolated QCE or clock-composition energy claim
+
 ## Remaining validation
 
-1. Normal QCE-loaded overnight drain and real-sleep recovery
-2. Longer matched energy comparison, cold hibernation remains separate
+1. Same-candidate QCE-opt-out overnight at a similar starting SOC
+2. Matched energy comparison, cold hibernation remains separate
 
 - No live supplier synchronization or provider replacement
 - Source/model checks: no proof of hardware-access safety or energy savings

@@ -64,7 +64,8 @@ sudo userspace/boot-splash/install.sh                  # Optional splash and msm
 ## Suspend and hibernate
 
 - Experimental suspend, QCE temporarily unloaded: 76% → 55% over 8 h 20 min, approximately 1.6 W
-- Normal QCE-loaded setup: no equivalent overnight power measurement
+- Clock/domain candidate, normal QCE loaded: 92% → 70% over 8 h 52 min, approximately 1.57 W, no DDR low-power residency
+- Historical versus candidate overnight: different configurations/SOC, no isolated energy attribution
 - Overnight battery suspend: unsafe for unattended use
 - Hibernate: working in-place `test_resume`, cold-resume dark screen and reset
 - Daily use: `systemctl poweroff`, hibernate disabled
@@ -167,7 +168,7 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 | 0005 | UFS clock-reference guard | Boot/runtime-PM/callback verified, UFS sleep vote cleared, power benefit unmeasured |
 | 0006 | Camera-PHY probe reference removal | Boot and camera captures before/after real suspend verified, idle camera clocks released |
 | `patches/experimental/usb/` 0007–0010 | USB ownership and PHY PM experiments | Excluded from maintained builds, unresolved mode/wake/error propagation, [review](patches/experimental/usb/README.md) |
-| `patches/experimental/clock-sync/` | Clock/domain callback composition | Boot/core/short real sleep and recovery passed, energy benefit unresolved, [candidate](patches/experimental/clock-sync/README.md) |
+| `patches/experimental/clock-sync/` | Clock/domain callback composition | Boot/core/short and overnight recovery passed, energy benefit unresolved, [candidate](patches/experimental/clock-sync/README.md) |
 | `patches/debug/` | CSIPHY diagnostics | Present in verified kernel, not a fix |
 
 - Maintained test deployment: packaged UFS/CSI overrides, ordinary preset rebuild verified, original USB drivers
@@ -178,13 +179,14 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 - Short baseline: DDR D4 97.43% of APSS sleep, battery 51% → 50%, no precise energy comparison or CX/AOSS collapse
 - Clock-flag test: boot/core/camera and 38-minute real sleep passed, DDR D4 97.44%, battery 45% → 43%, no established energy benefit
 - Maintained no-flags reference: boot/core/camera and 20-minute real sleep passed
-- Current test: **Arch Linux (PM test, clock-domain sync)**, boot/core/short real sleep passed, unchanged initramfs/DTB/modules
+- Current test: **Arch Linux (PM test, clock-domain sync)**, boot/core/short and overnight recovery passed, unchanged initramfs/DTB/modules
 - No-flags real sleep: DDR D4 97.44%, battery 40% → 39%, approximately 1.62 W from coarse SOC endpoints, no established energy benefit
 - Three-boot comparison: final sampled clocks and RPMh requests identical, no CX/AOSS collapse, QCE and original device policies restored
 - Clock-cleanup gap: corrected in the running candidate, six composite callbacks verified, previously missing native sweeps now logged
 - Candidate real sleep: 9m50s, DDR D4 97.43%, cached clocks/RPMh requests unchanged, battery 96% → 96% below measurement resolution
 - Normal QCE-loaded core: recovery passed, DDR sleep request 393600/393600 kB/s, initialization floors zero
-- Normal QCE-loaded overnight: prepared, not scheduled, manual wake required
+- Normal QCE-loaded overnight: 8h52m, battery 92% → 70%, approximately 1.57 W, no DDR D4 or CX/AOSS entries, recovery passed
+- Same-candidate QCE-opt-out overnight: prepared, not scheduled, recharge and manual wake coordination required
 - Default `arch.conf`: older GPU-fixed fallback, unchanged
 - Current status: [suspend investigation](reports/suspend-investigation.md), full history archived separately
 

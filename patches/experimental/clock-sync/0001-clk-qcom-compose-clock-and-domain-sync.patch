@@ -4,9 +4,10 @@ Scope: shared QCOM probe, default clock/domain callback
 Order: native clock cleanup before native domain synchronization
 Compatibility: early board-clock registration and explicit callbacks retained
 ICC: existing explicit providers only, no new synchronization counts
-Validation: source regression, seven mutations, native builds, boot, core and short real suspend
+Validation: source regression, seven mutations, native builds, boot, core, short and overnight suspend
 Recovery: camera, USB policies, Wi-Fi, QCE/ICC
-Not established: energy benefit, normal QCE-loaded overnight, cold hibernation
+Normal QCE-loaded overnight: approximately 1.57 W, DDR low-power goal failed
+Not established: energy benefit, cold hibernation
 
 --- a/drivers/clk/qcom/common.c
 +++ b/drivers/clk/qcom/common.c

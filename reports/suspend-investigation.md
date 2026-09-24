@@ -22,7 +22,8 @@
 - Candidate boot/core and callback ownership: `/var/log/book4-clock-baseline.0PgY4A/`
 - Completed candidate real sleep: `/var/log/book4-suspend-clock.qB0ZiX/`
 - Normal QCE-loaded core: `/var/log/book4-qce-loaded-core.mp3Myn/`
-- Prepared normal QCE-loaded overnight: `/var/log/book4-overnight-qce.uZgywz/`, not scheduled
+- Completed normal QCE-loaded overnight: `/var/log/book4-overnight-qce.uZgywz/`
+- Prepared same-candidate QCE-opt-out overnight: `/var/log/book4-overnight-noqce.NEvDTP/`, not scheduled
 
 ## Verified
 
@@ -91,6 +92,11 @@
 | Normal QCE-loaded core | Success 2 → 3 / failure 0, APSS unchanged, interval 6.814513 s / monotonic 1.813856 s |
 | Loaded-core requests | DDR 393600/393600 kB/s, initialization floors zero, ACV 0/8, MC0 46/374, DDR zero-vote goal not met |
 | Loaded-core recovery | QCE remained loaded, generic crypto before/after, USB policy/counts, camera and Wi-Fi passed, 21 negative controls |
+| Loaded overnight | APSS 31907.889 s, interval 31909.765 s / monotonic 1.869 s, success 3 → 4 / failure 0 |
+| Loaded overnight battery | 92% → 70%, 0.836 Ah, approximately 1.574 W and 2.479 percentage points/hour including 32.182 s awake settling |
+| Loaded overnight DDR | No sleep entries or D4 residency, 547 MHz for 31908.765 s, DDR zero-vote and low-power goals false |
+| Loaded overnight recovery | QCE bound, 17 synchronized ICC providers, original USB policy/counts, generic crypto, Wi-Fi and two discarded camera captures passed |
+| Loaded overnight controls | 21 negative controls, explicit failed-goal fixture and captured-result reproduction passed |
 | QCE blacklist | `1700000.interconnect` unsynchronized, QCE only non-active consumer, global ICC initialization floors retained |
 | Readiness guard | Rejects boot-time blacklist, passes temporary unload after successful probe and synchronization |
 | Windows preservation | BCD, BCD.LOG and BOOTSTAT.DAT changed across manual reboot, original failure retained, no writes or rollback to those files |
@@ -120,8 +126,8 @@
 - Previous no-flags boot: flag-only comparison completed without the composition fix
 - Current boot: both options still absent, clock/domain composition added
 - Initramfs, DTB, options and installed modules: unchanged
-- Candidate: boot, native cleanup, core callbacks, short real sleep and camera recovery verified
-- Normal QCE-loaded operation: core diagnostic passed, overnight energy measurement pending
+- Candidate: boot, native cleanup, core callbacks, short/overnight real sleep and camera recovery verified
+- Normal QCE-loaded operation: core and overnight recovery passed, approximately 1.57 W, DDR power goals failed
 - Six sampled clock providers: `state_synced=1`, combined callback names and native sweep messages independently verified
 - Clock cleanup: native count and `CLK_IGNORE_UNUSED` guards retained, no live clock gating
 - Default/fallback, executable bootloaders and historical kernel/initramfs images: unchanged
@@ -163,9 +169,9 @@
 - Awake-only differences: UFS, I2C and shared XO counts, exact rows in `clock-comparison.json`
 - CX/AOSS collapse: absent
 - SOC resolution: approximately 1%, no established energy improvement or regression
-- Normal QCE-loaded overnight drain: not measured on this configuration
+- Normal QCE-loaded overnight: measured separately on the clock/domain candidate, not on these flag-only configurations
 
-## Clock/domain candidate — short real sleep passed
+## Clock/domain candidate — sleep and recovery verified
 
 - Patch and boundaries: [experimental clock synchronization](../patches/experimental/clock-sync/README.md)
 - Default composition: clocks before domains, installed before either framework registers its callback
@@ -218,9 +224,36 @@
 - Explicit QCE execution: not tested, no API-mask bypass or hardware-failure inference
 - Camera, USB policy/counts, Wi-Fi and module/ICC state: recovered
 - Checker controls: 21 rejected violations, captured-result reproduction passed
-- Overnight runner: prepared, battery minimum 70%, QCE loaded throughout, no timer
-- Overnight goals: zero DDR vote and D4 residency reported separately, no assumed collapse or energy benefit
+- Overnight: Sep 24 02:05:29–10:57:19, APSS 8 h 51 min 47.889 s, success 3 → 4, failure 0
+- Battery: 92% → 70%, 0.836 Ah, mean endpoint 16.707 V, approximately 13.967 Wh
+- Coarse average: 1.574149 W over 8.872763 h including 32.182 s awake settling
+- DDR: 0 sleep entries, 0 D4/d3/0x11 residency, 31909.765 s D0
+- Active DDR: 547 MHz for 31908.765 s, active-frequency/D0 discrepancy 0.000004583 s
+- DDR zero-vote and low-power goals: both false, callback and recovery checks passed separately
+- CX/AOSS entries: 0/0
+- ADSP: 3350217 entries, 27089.489 s sleep, 84.899% of APSS, approximately 105 entries per APSS second
+- Final cached clocks, single-resource RPMh requests and batches: match loaded core
+- QCE-opt-out short sleep comparison: same final clock samples/single requests, different bandwidth batches
+- Awake clock differences: 15 rows versus loaded core and candidate opt-out short sleep
+- Recovery: QCE remained loaded and bound, 17 ICC providers synchronized, original USB policies/counts, generic crypto, Wi-Fi and camera passed
+- Controls: 21 rejected captured-data violations, failed DDR-goal fixture, unchanged-input replay and protected-file checks passed
 - Original strict QCE-opt-out checkers: unchanged
+
+## Overnight comparison limits
+
+| Configuration | APSS sleep | DDR D4/APSS | ADSP sleep/APSS | Battery | Coarse W |
+|---|---:|---:|---:|---:|---:|
+| Historical QCE opt-out, older kernel/fixes | 8 h 20 min | 97.44059% | 98.16879% | 76% → 55% | 1.57461 |
+| Candidate QCE opt-out, short test | 9 min 50 s | 97.43008% | 98.41896% | 96% → 96% | Unresolved |
+| Candidate QCE loaded | 8 h 52 min | 0% | 84.89903% | 92% → 70% | 1.57415 |
+
+- Historical full-charge capacity: 3.9 Ah, candidate captures: 3.8 Ah
+- Historical kernel, UFS/CSI state, SOC range and duration: different
+- Same-candidate opt-out capture: too short for a resolved energy estimate
+- Similar coarse overnight watts: no isolated QCE or clock-composition energy conclusion
+- ADSP counter contrast: observed, not proof of a QCE-caused firmware wake mechanism
+- Next measurement: same candidate, similar starting SOC, overnight temporary QCE opt-out
+- Next runner: prepared, not scheduled, recharge toward 92% before coordination
 
 ## Existing AOSS/QDSS deferral
 
@@ -235,9 +268,9 @@
 
 ## Next tests
 
-1. Coordinate battery-only overnight sleep with QCE loaded and manual morning wake
-2. Verify recovery, independent firmware residency and coarse energy estimate
-3. Compare normal QCE-loaded operation against qualified temporary-opt-out measurements
+1. Recharge toward 92%, coordinate same-candidate QCE-opt-out overnight and manual morning wake
+2. Verify recovery, DDR/ADSP residency and coarse energy against the loaded overnight
+3. Review QCE request/PM lifetime without treating DDR residency alone as an energy result
 4. Read-only review of remaining USB, GCC, trace/QDSS and physical PCIe blockers
 5. USB ownership/wake/error-path work with consumer-side recovery coverage
 
@@ -259,7 +292,7 @@
 - QCE opt-out: workaround, not a driver PM fix
 - Hibernate: cold-resume reset stage unresolved
 - RTC alarm: unavailable, manual wake required
-- Latest coordinated real sleep: planned ten minutes, manually ended after approximately 9 minutes 50 seconds
+- Latest coordinated real sleep: normal QCE-loaded overnight, approximately 8 hours 52 minutes
 - Additional uncontrolled sleeps: Sep 23 15:45:07–16:11:26 and 16:41:51–20:03:15, success 2 → 4 / failure 0, no controlled power measurement
 - Known warnings retained: PCIe L2 timeout, IRQ-affinity failures and Wi-Fi hwmon parent-sleep warning
 - No reboot scheduled, default/fallback unchanged
