@@ -7,7 +7,8 @@ Subject: [PATCH 1/2] usb: retain root-hub hooks with parent PHY ownership
 - Property array: seven possible entries plus the zero terminator
 - Validation: extracted-helper regression, 100 cycles and native object builds
 - Full EFI build staged, control/object/header checks passed
-- Experimental candidate, no boot or peripheral-wake validation
+- Empty-port boot/core/recovery passed, eight PHYs at 1/1 with HOST_SS
+- Experimental candidate, peripheral/wake validation pending
 ---
 
 diff --git a/drivers/usb/core/phy.c b/drivers/usb/core/phy.c

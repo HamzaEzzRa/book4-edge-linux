@@ -5,7 +5,7 @@
 - Maintained baseline: patches 0001–0006, native PCIe PM, original USB drivers
 - USB experiments 0007–0010: excluded from the maintained series and next test boot
 - USB blockers: [review findings](../patches/experimental/usb/README.md)
-- Hook-preserving USB ownership/local-error rework: [built/staged candidate](../patches/experimental/usb-rework/README.md), boot pending, no PHY clock gating
+- Hook-preserving USB ownership/local-error rework: [boot/core-validated candidate](../patches/experimental/usb-rework/README.md), peripheral/wake pending, no PHY clock gating
 - Original chronology and failures: [2026-09-20–22 archive](archive/suspend-2026-09-20-22.md)
 - Checkpoint including observer: `74f1210`
 - Deployment evidence: `/var/log/book4-review-fixes.5t5Ufq/`
@@ -27,6 +27,7 @@
 - Completed same-candidate long QCE opt-out: `/var/log/book4-overnight-noqce.NEvDTP/`
 - USB rework source/native checks: `/var/log/book4-usb-rework.dWCMR6/`
 - USB rework build/publication: `/var/log/book4-usb-build.vCO9zz/`
+- USB rework boot/core/recovery: `/var/log/book4-usb-owner-boot.qvP15L/`
 - Unchanged-kernel PCIe callback diagnostic: `/var/log/book4-pcie-cache.GBGFdS/`
 
 ## Verified
@@ -107,7 +108,10 @@
 | Same-candidate energy comparison | Loaded approximately 1.574 W, opt-out approximately 1.612 W, no established energy saving or regression |
 | USB consumer rework | Original failures reproduced, five native objects per variant, 20 mutation controls |
 | USB candidate build | Cached control reproduced, four non-debug USB object changes among 4,464 linked inputs, 13 debug-only changes |
-| USB candidate staging | EFI validated and nondefault test entry updated, default/fallback/modules/initramfs/DTB unchanged, boot pending |
+| USB candidate staging | EFI validated and nondefault test entry updated, default/fallback/modules/initramfs/DTB unchanged |
+| USB candidate boot | Expected kernel/module notes, eight PHYs at 1/1 with cached HOST_SS, six root hubs, original PHY drivers |
+| USB candidate core | Success 0 → 1 / failure 0, APSS unchanged, DWC3 markers 0 → 1 → 1 → 0, xHCI accessible flags recovered |
+| USB candidate recovery | QCE/17 ICC, original policies, camera, generic crypto and Wi-Fi passed, final clocks/RPMh unchanged |
 | PCIe cached shutdown | Five-second core check, success 5 → 6 / failure 0, native shutdown path recorded despite L2 timeout, downstream power-off not skipped |
 | PCIe diagnostic recovery | APSS unchanged, QCE loaded, 17 ICC providers synchronized, USB policy, camera, generic crypto and Wi-Fi passed |
 | QCE blacklist | `1700000.interconnect` unsynchronized, QCE only non-active consumer, global ICC initialization floors retained |
@@ -322,7 +326,7 @@
 - No trace-driver loading, forced synchronization, reference decrements or QMP writes
 - Existing QMI initialization and APM timeout messages: also present on the previous boot
 
-## USB consumer rework — full build staged
+## USB consumer rework — empty-port boot/core verified
 
 - Two patches under `patches/experimental/usb-rework/`, maintained series unchanged
 - Parent-owned PHY lifetime without `XHCI_SKIP_PHY_INIT`, root-hub hooks retained
@@ -339,7 +343,7 @@
 - Scope limit: reported DWC3 callback errors only, not permission to enable 0009/0010
 - Remaining gating work: supplier readiness, mode-aware wake, shared lifetime and mixed runtime/system transitions
 - Full link and EFI embedding: passed, cached build reused rather than a clean recompile
-- Control Image: equivalent to running clock candidate except verified kernel and vDSO GNU build IDs
+- Control Image: equivalent to previous clock-only candidate except verified kernel and vDSO GNU build IDs
 - Control ID: `005eb5f29962e165c715edd5c6f9d6eb626f5775`
 - Candidate ID: `1e24968b6e9d63b835a5fc12fdfc3689787d666b`
 - Linked inputs: 4,464, non-debug changes limited to USB `hcd.o`/`phy.o` and DWC3 `core.o`/`host.o`
@@ -353,7 +357,26 @@
 - Default/fallback, previous clock kernel, installed modules, initramfs, DTB and options preserved
 - Current-hash Windows checks passed, historical BCD/BCD.LOG/BOOTSTAT.DAT qualification unchanged
 - Controls: six candidate input/image failures, two-ID normalization, publication rollback/forbidden deltas and four boot-validator failures
-- Boot, peripheral wake, hardware fault injection and energy: pending
+- Hardware stage: original PHY drivers, empty ports, original `power/control=on` and wake policies
+- Boot: `89e5a84a-e198-4e7f-8c09-167f8807635f`, expected kernel/module notes, QCE normally probed
+- Clock cleanup: all six inspected composite callback owners retained, 17 ICC providers synchronized
+- Observer: matching native root-hub/PHY/HCD/DWC3 offsets and HCD bitfield, live module notes verified
+- Initial GDB failure: reduced `hcd.o` lacked nested USB-bus members, matching `vmlinux` resolved offsets
+- Eight USB PHYs: init/power 1/1 and cached mode 5 `USB_HOST_SS` in all four phases
+- Six root hubs: no skip-PHY flag, five parent-owned PHY lists
+- Multiport shared root: no separate list by native allocation design, four PHYs present in its primary root
+- Three DWC3 markers: awake 0, final suspend 1, early syscore resume 1, awake-post 0
+- Six xHCI accessible flags: 1 → 0 → 0 → 1
+- Test: five-second `pm_test=core`, success 0 → 1 / failure 0, APSS unchanged
+- Interval: 6.997589 s, monotonic: 1.992069 s, no real-sleep or energy result
+- DDR: 393600/393600 kB/s with QCE loaded throughout, UFS request zero, XO retained
+- Final 216-handle clock samples and full RPMh requests/batches: identical to preceding QCE-loaded PCIe core
+- Awake comparison: nine I2C/XO rows differ, retained without causal attribution
+- Recovery: PHY references/modes, USB policies, QCE/17 ICC, generic crypto and Wi-Fi passed
+- Camera: two discarded ten-frame captures before and after, existing CCI autosuspend respected
+- Capture controls: 21 existing violations and 20 USB violations rejected, replay inputs/results unchanged
+- Observer, hook and test units removed, `pm_test=none`
+- Pending: peripherals, hardware fault injection, supplier readiness, mixed transitions, wake and real sleep
 - No reboot or suspend scheduled
 
 ## PCIe shutdown path — callback evidence
@@ -385,8 +408,8 @@
 
 ## Next tests
 
-1. Manual boot selection: `Arch Linux (PM test, USB ownership)`, expected kernel build ID and original module notes
-2. Original PHY drivers and `power/control=on`, boot/core/recovery before coordinated peripheral and wake checks
+1. Manual USB-A peripheral connection, mouse or keyboard preferred, enumeration and disconnect/reconnect checks
+2. Coordinated USB-C/SuperSpeed, wake and real-sleep checks after peripheral recovery, original PHY drivers and policies
 3. Supplier-readiness and mode/lifetime corrections before any USB PHY clock gating
 4. GCC and physical PCIe rail/reference review, no inference from the L2 warning alone
 5. QCE request/PM lifetime review, no boot blacklist or assumed battery saving

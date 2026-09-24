@@ -1,10 +1,11 @@
 # USB ownership and local resume-error rework
 
-- Status: full kernel built and staged in the nondefault test entry, boot validation pending
+- Status: empty-port boot and normal core-callback/recovery checks passed, experimental
 - Base: `2685c75587ff`, maintained 0001–0006 and experimental clock/domain composition
 - Historical USB 0007–0010: excluded, unchanged under `../usb/`
 - Scope: consumer ownership and reported DWC3 resume errors, no PHY clock gating
-- Running kernel, modules, initramfs, fallback/default and USB policies: unchanged
+- Running kernel: ownership/local-error candidate with clock/domain composition
+- Modules, initramfs, fallback/default and USB policies: unchanged
 - Test entry only: `Arch Linux (PM test, USB ownership)`
 
 | Patch | Scope |
@@ -35,7 +36,15 @@ python3 scripts/test-usb-pm-rework.py /path/to/kernel-with-rework
 - 26,955 header checks: only two private USB headers changed, public/generated ABI headers unchanged
 - Configuration and kernel exports unchanged, `MODVERSIONS` disabled
 - Cached build reused, control Image reproduced except two verified GNU build IDs, not a clean recompile
-- Boot, hardware fault injection, peripheral wake and energy: pending
+- Boot: expected kernel/module build-ID notes, six clock/domain callback owners, 17 ICC providers synchronized
+- Eight USB PHYs: init/power counts 1/1, cached `USB_HOST_SS`, root-hub inventory retained
+- Six root hubs: `skip_phy=0`, five parent-owned PHY lists, multiport shared root intentionally empty
+- Five-second `pm_test=core`: success 0 → 1 / failure 0, APSS unchanged, not real sleep
+- DWC3 markers: 0 → 1 → 1 → 0, xHCI accessible flags: 1 → 0 → 0 → 1
+- Recovery: original policies, single PHY references, camera, generic crypto, QCE/ICC and Wi-Fi passed
+- Final cached clocks/RPMh requests: unchanged from the preceding QCE-loaded core diagnostic
+- Capture checkers: 21 existing controls, 20 USB violations rejected, unchanged-input replay passed
+- Hardware fault injection, peripherals, wake, real sleep and energy: pending
 
 ## Gating blockers
 
@@ -61,4 +70,6 @@ python3 scripts/test-usb-pm-rework.py /path/to/kernel-with-rework
 - Kernel build ID: `1e24968b6e9d63b835a5fc12fdfc3689787d666b`
 - Six candidate rejection controls, two-ID normalization controls, publication rollback and four boot-validator controls passed
 - Entry delta: title and kernel path only, existing default/fallback and historical payloads retained
-- Next input: manual reboot and test-entry selection, no reboot scheduled
+- Boot/core evidence: `/var/log/book4-usb-owner-boot.qvP15L/`
+- Native observer: private-layout and live module-note checks, cached fields only
+- Next input: connect a USB mouse or keyboard to USB-A, no reboot or real sleep scheduled
