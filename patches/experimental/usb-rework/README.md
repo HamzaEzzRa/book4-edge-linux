@@ -1,13 +1,14 @@
 # USB ownership and local resume-error rework
 
 - 0001–0002: empty-port boot, keyboard callbacks and empty-port real suspend/recovery passed
-- 0003: source/native and cached full-kernel build passed, staged, manual boot pending
+- 0003: boot, normal callbacks and USB-A runtime → system-suspend callbacks passed
 - Base: `2685c75587ff`, maintained 0001–0006 and experimental clock/domain composition
 - Historical USB 0007–0010: excluded, unchanged under `../usb/`
 - Scope: consumer ownership, reported provider/core resume errors and host runtime/system transitions
 - PHY clock gating: absent
-- Running kernel: ownership/local-error candidate with clock/domain composition
-- Modules, initramfs, fallback/default and USB policies: unchanged
+- Running kernel: supplier-guard candidate with clock/domain composition
+- Modules, initramfs and fallback/default: unchanged
+- USB policies: restored after temporary controller/xHCI runtime checks, wake settings unchanged
 - Test entry only: `Arch Linux (PM test, USB supplier guards)`
 
 | Patch | Scope |
@@ -69,7 +70,15 @@ python3 scripts/test-usb-pm-rework.py /path/to/kernel-with-all-three-patches
 - 26,955 headers, configuration, exports and DWC3 layout unchanged
 - No hardware fault injection or full PM-engine simulation
 - Build battery: 33% → 32%, four jobs, 30%/invalid-telemetry guard not triggered
-- Boot, callbacks and peripheral recovery: pending
+- Boot identity, original QCE/PHY drivers and 17 synchronized ICC providers verified
+- Normal and mixed-transition `pm_test=core`: success 0 → 2 / failure 0, no real sleep
+- USB-A controller/xHCI: naturally runtime-suspended before system sleep, original `on` policies restored
+- Recovery: USB ownership, PHY references, camera, Wi-Fi and generic crypto passed
+- Final cached clocks, RPMh sleep batches and BCM votes matched normal callbacks
+- Additional camera LDO wake requests retained in the mixed capture, no energy comparison
+- USB-C supplier usage increments: pre-existing PM-core link references, ordinary runtime cycle released accumulated references
+- No forced decrements, PHY gating or energy improvement
+- Real sleep and peripheral wake/recovery on 0003: pending
 
 ## Gating blockers
 
@@ -104,6 +113,9 @@ python3 scripts/test-usb-pm-rework.py /path/to/kernel-with-all-three-patches
 - Supplier source/native work: `/var/log/book4-usb-supplier.jAjBST/`
 - Supplier build/publication: `/var/log/book4-usb-supplier-build.NK37ym/`
 - Supplier source tree: `/home/hamza/Projects/linux-book4-usb-supplier`
-- Staged EFI: `/boot/vmlinuz-book4-usbguard.efi`
-- Staged build ID: `a2049bc6b325058edb90198ca657ecfa8ced1aca`
-- Next input: manual test-entry boot, no reboot or real sleep scheduled
+- Running EFI: `/boot/vmlinuz-book4-usbguard.efi`
+- Running build ID: `a2049bc6b325058edb90198ca657ecfa8ced1aca`
+- Supplier boot/normal callbacks: `/var/log/book4-usb-supplier-boot.D83npA/`
+- Mixed-transition callbacks: `/var/log/book4-usb-mixed.ckw5Ok/`
+- Native supplier-reference release: `/var/log/book4-usb-linkrefs.dr0igx/`
+- Next input: charger and USB-A keyboard, no reboot or real sleep scheduled
