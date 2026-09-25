@@ -1,0 +1,101 @@
+Subject: [PATCH] usb: dwc3: check PHY providers before system resume
+
+- Explicit provider runtime resume before DWC3 core restore
+- Active PHY children no longer bypass reported provider resume failures
+- Host prepare resumes an already runtime-suspended controller
+- Failed system resume retains runtime, xHCI, completion and Qualcomm IRQ guards
+- Original PHY drivers and wake policies unchanged
+- Source/native checks passed, hardware validation pending
+
+---
+diff --git a/drivers/usb/dwc3/core.c b/drivers/usb/dwc3/core.c
+--- a/drivers/usb/dwc3/core.c
++++ b/drivers/usb/dwc3/core.c
+@@ -2672,6 +2672,9 @@
+ 	struct device *dev = dwc->dev;
+ 	int		ret;
+ 
++	if (dwc->pm_suspended)
++		return -EHOSTDOWN;
++
+ 	ret = dwc3_resume_common(dwc, PMSG_AUTO_RESUME);
+ 	if (ret)
+ 		return ret;
+@@ -2734,6 +2737,17 @@
+ #endif /* CONFIG_PM */
+ 
+ #ifdef CONFIG_PM_SLEEP
++static int dwc3_resume_phy_parent(struct phy *phy)
++{
++	if (!phy || !pm_runtime_enabled(&phy->dev))
++		return 0;
++	if (!pm_runtime_enabled(phy->dev.parent))
++		return -EHOSTDOWN;
++
++	/* System prepare holds provider references through the resume phase */
++	return pm_runtime_resume(phy->dev.parent);
++}
++
+ int dwc3_pm_suspend(struct dwc3 *dwc)
+ {
+ 	struct device *dev = dwc->dev;
+@@ -2754,6 +2768,7 @@
+ {
+ 	struct device *dev = dwc->dev;
+ 	int		ret = 0;
++	int		i;
+ 
+ 	pinctrl_pm_select_default_state(dev);
+ 
+@@ -2762,7 +2777,19 @@
+ 	if (ret)
+ 		goto out;
+ 
++	for (i = 0; i < dwc->num_usb2_ports; i++) {
++		ret = dwc3_resume_phy_parent(dwc->usb2_generic_phy[i]);
++		if (ret < 0)
++			goto suspended;
++	}
++	for (i = 0; i < dwc->num_usb3_ports; i++) {
++		ret = dwc3_resume_phy_parent(dwc->usb3_generic_phy[i]);
++		if (ret < 0)
++			goto suspended;
++	}
++
+ 	ret = dwc3_resume_common(dwc, PMSG_RESUME);
++suspended:
+ 	if (ret)
+ 		pm_runtime_set_suspended(dev);
+ 	else
+@@ -2794,6 +2821,12 @@
+ int dwc3_pm_prepare(struct dwc3 *dwc)
+ {
+ 	struct device *dev = dwc->dev;
++	int ret;
++
++	if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST) {
++		ret = pm_runtime_resume(dev);
++		return ret < 0 ? ret : 0;
++	}
+ 
+ 	/*
+ 	 * Indicate to the PM core that it may safely leave the device in
+diff --git a/drivers/usb/dwc3/dwc3-qcom.c b/drivers/usb/dwc3/dwc3-qcom.c
+--- a/drivers/usb/dwc3/dwc3-qcom.c
++++ b/drivers/usb/dwc3/dwc3-qcom.c
+@@ -783,11 +783,11 @@
+ 	if (ret)
+ 		return ret;
+ 
++	ret = dwc3_pm_resume(&qcom->dwc);
++	if (ret)
++		return ret;
++
+ 	qcom->pm_suspended = false;
+-
+-	ret = dwc3_pm_resume(&qcom->dwc);
+-	if (ret)
+-		return ret;
+ 
+ 	return 0;
+ }

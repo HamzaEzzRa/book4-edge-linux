@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Extracted USB ownership and DWC3 resume helpers, no hardware access
 Usage: test-usb-pm-rework.py KERNEL_TREE [SOURCE_TREE]
-Excluded: hidden supplier failures, mixed runtime/system transitions, wake, energy
+Includes provider errors and host runtime/system transitions with modeled PM boundaries
+Excluded: full PM engine, hardware fault injection, peripheral wake and energy
 """
 from pathlib import Path
 import re
@@ -27,6 +28,7 @@ phy = (source / 'drivers/usb/core/phy.c').read_text()
 hcd = (source / 'drivers/usb/core/hcd.c').read_text()
 core = (source / 'drivers/usb/dwc3/core.c').read_text()
 host = (source / 'drivers/usb/dwc3/host.c').read_text()
+glue_source = (source / 'drivers/usb/dwc3/dwc3-qcom.c').read_text()
 framework = (kernel / 'drivers/phy/phy-core.c').read_text()
 root_type = re.search(r'struct usb_phy_roothub \{.*?\n\};', phy, re.S)[0]
 setter = (function(phy, 'usb_phy_roothub_set_parent_owned') if 'void usb_phy_roothub_set_parent_owned(' in phy else
@@ -134,16 +136,29 @@ resume = r'''
 #define PMSG_IS_AUTO(m) ((m)&0x100)
 typedef unsigned int u32;
 typedef int pm_message_t;
-struct device { bool enabled, wake, suspended; int refs, result; void *data; struct device *parent; };
+struct device { bool enabled, wake, suspended, pinctrl; int refs, result, resume_calls; void *data; struct device *parent; };
 struct phy { struct device dev; };
 struct dwc3 {
     struct device *dev; struct phy *usb2_generic_phy[4], *usb3_generic_phy[4];
     int num_usb2_ports, num_usb3_ports, current_dr_role, current_otg_role, irq_gadget;
-    bool needs_full_reinit, dis_u2_susphy_quirk, dis_enblslpm_quirk, susphy_state, dis_split_quirk, pm_suspended;
+    bool needs_full_reinit, dis_u2_susphy_quirk, dis_enblslpm_quirk, susphy_state, dis_split_quirk, pm_suspended, pending_events;
 };
 struct usb_hcd { struct { struct device *controller; } self; };
-static struct dwc3 *active;
+int dwc3_runtime_resume(struct dwc3 *dwc);
 static int mmio, full_error, full_calls, full_ready, runtime_depth, active_error, gadget_error;
+int pm_runtime_resume(struct device *d) {
+    assert(d->refs>0);
+    d->resume_calls++;
+    if (!d->enabled) return -EACCES;
+    if (d->result<0) return d->result;
+    if (!d->suspended) return 1;
+    if (d->data) {
+        int ret=dwc3_runtime_resume(d->data);
+        if (ret) return ret;
+    }
+    d->suspended=false;
+    return 0;
+}
 static bool pm_runtime_enabled(struct device *d) { return d->enabled; }
 static int pm_runtime_get_sync(struct device *d) { d->refs++; return d->result; }
 static int pm_runtime_put_sync(struct device *d) { assert(d->refs>0); d->refs--; return 0; }
@@ -156,10 +171,19 @@ static int pm_runtime_set_active(struct device *d) { if (active_error) return ac
 static void pm_runtime_set_suspended(struct device *d) { d->suspended=true; }
 static void pinctrl_pm_select_sleep_state(struct device *d) { (void)d; }
 static void pinctrl_pm_select_default_state(struct device *d) { (void)d; }
+static bool dev_pinctrl(struct device *d) { return d->pinctrl; }
+static void pm_runtime_put(struct device *d) { assert(d->refs>0); d->refs--; }
+static void pm_runtime_mark_last_busy(struct device *d) { (void)d; }
+static void enable_irq(int irq) { (void)irq; }
+static void phy_accessible(struct phy *p) {
+    if (!p || !p->dev.enabled) return;
+    assert(p->dev.refs>0);
+    assert(p->dev.parent->enabled && !p->dev.parent->suspended);
+}
 static void accessible(struct dwc3 *d) {
     if (full_ready) return;
-    for (int i=0; i<d->num_usb2_ports; i++) if (d->usb2_generic_phy[i] && d->usb2_generic_phy[i]->dev.enabled) assert(d->usb2_generic_phy[i]->dev.refs==1);
-    for (int i=0; i<d->num_usb3_ports; i++) if (d->usb3_generic_phy[i] && d->usb3_generic_phy[i]->dev.enabled) assert(d->usb3_generic_phy[i]->dev.refs==1);
+    for (int i=0; i<d->num_usb2_ports; i++) phy_accessible(d->usb2_generic_phy[i]);
+    for (int i=0; i<d->num_usb3_ports; i++) phy_accessible(d->usb3_generic_phy[i]);
 }
 static u32 dwc3_readl(struct dwc3 *d, int reg) { (void)reg; accessible(d); mmio++; return 3; }
 static void dwc3_writel(struct dwc3 *d, int reg, u32 val) { (void)reg; (void)val; accessible(d); mmio++; }
@@ -177,18 +201,23 @@ static void dwc3_otg_host_init(struct dwc3 *d) { (void)d; }
 '''
 for name in ('phy_pm_runtime_get_sync', 'phy_pm_runtime_put_sync'):
     resume += function(framework, name) + '\n'
-for name in ('dwc3_suspend_common', 'dwc3_resume_common', 'dwc3_pm_suspend', 'dwc3_pm_resume', 'dwc3_pm_complete'):
+if 'static int dwc3_resume_phy_parent(' in core:
+    resume += function(core, 'dwc3_resume_phy_parent') + '\n'
+for name in ('dwc3_suspend_common', 'dwc3_resume_common', 'dwc3_runtime_resume', 'dwc3_pm_suspend', 'dwc3_pm_resume', 'dwc3_pm_complete', 'dwc3_pm_prepare'):
     resume += function(core, name) + '\n'
 resume += (function(host, 'dwc3_xhci_resume_quirk') if 'static int dwc3_xhci_resume_quirk(' in host else
            'static int dwc3_xhci_resume_quirk(struct usb_hcd *h) { (void)h; return 0; }') + '\n'
 resume += r'''
-static struct phy p[8]; static struct device dev, child;
+static struct phy p[8]; static struct device dev, child, providers[8];
 static struct dwc3 dwc; static struct usb_hcd hcd;
 static void setup(int n2,int n3) {
-    dev=(struct device){.wake=true}; child=(struct device){.parent=&dev};
+    dev=(struct device){.enabled=true,.wake=true,.refs=1}; child=(struct device){.parent=&dev};
     dwc=(struct dwc3){.dev=&dev,.num_usb2_ports=n2,.num_usb3_ports=n3,.current_dr_role=DWC3_GCTL_PRTCAP_HOST,.dis_u2_susphy_quirk=true,.dis_enblslpm_quirk=true,.dis_split_quirk=true};
-    dev.data=&dwc; hcd.self.controller=&child; active=&dwc;
-    for (int i=0;i<8;i++) p[i]=(struct phy){.dev={.enabled=true,.refs=1}};
+    dev.data=&dwc; hcd.self.controller=&child;
+    for (int i=0;i<8;i++) {
+        providers[i]=(struct device){.enabled=true,.refs=1};
+        p[i]=(struct phy){.dev={.enabled=true,.refs=1,.parent=&providers[i]}};
+    }
     for (int i=0;i<n2;i++) dwc.usb2_generic_phy[i]=&p[i];
     for (int i=0;i<n3;i++) dwc.usb3_generic_phy[i]=&p[4+i];
     mmio=full_error=full_calls=full_ready=runtime_depth=active_error=gadget_error=0;
@@ -231,12 +260,82 @@ int main(void) {
     assert(dwc3_xhci_resume_quirk(&hcd)==-EHOSTDOWN); dwc3_pm_complete(&dwc); assert(mmio==0);
     setup(0,0); dwc.current_dr_role=DWC3_GCTL_PRTCAP_DEVICE; gadget_error=-EBUSY;
     assert(dwc3_pm_suspend(&dwc)==-EBUSY && !dwc.pm_suspended);
-    assert(active==&dwc);
+    for (int failure=0;failure<8;failure++) {
+        setup(4,4);
+        for (int i=0;i<8;i++) { p[i].dev.refs++; p[i].dev.result=1; }
+        assert(!dwc3_pm_suspend(&dwc)); refs(1); mmio=0;
+        providers[failure].suspended=true;
+        providers[failure].result=-EIO;
+        assert(dwc3_pm_resume(&dwc)==-EIO);
+        assert(mmio==0 && dev.suspended && dwc.pm_suspended && !runtime_depth);
+        refs(1);
+        assert(dwc3_runtime_resume(&dwc)==-EHOSTDOWN && mmio==0);
+        assert(dwc3_xhci_resume_quirk(&hcd)==-EHOSTDOWN);
+        dwc3_pm_complete(&dwc); assert(mmio==0);
+        providers[failure].result=0;
+        assert(!dwc3_pm_resume(&dwc)); refs(2);
+        assert(!dev.suspended && !dwc.pm_suspended && !runtime_depth);
+        for (int i=0;i<8;i++) assert(providers[i].refs==1);
+        for (int i=0;i<8;i++) p[i].dev.refs--;
+        refs(1);
+    }
+    setup(1,1); assert(!dwc3_pm_suspend(&dwc)); mmio=0;
+    providers[0].enabled=false;
+    assert(dwc3_pm_resume(&dwc)==-EHOSTDOWN && mmio==0);
+    assert(!providers[0].resume_calls && dwc.pm_suspended);
+    providers[0].enabled=true;
+    assert(!dwc3_pm_resume(&dwc)); refs(1);
+    setup(1,1);
+    assert(!dwc3_pm_prepare(&dwc) && !dev.suspended);
+    for (int cycle=0;cycle<100;cycle++) {
+        assert(!dwc3_suspend_common(&dwc,PMSG_AUTO_SUSPEND)); refs(0);
+        dev.suspended=true;
+        p[0].dev.refs++; p[4].dev.refs++;
+        assert(!dwc3_pm_prepare(&dwc) && !dev.suspended); refs(2);
+        assert(!dwc3_pm_suspend(&dwc)); refs(1);
+        assert(!dwc3_pm_resume(&dwc)); refs(2);
+        dwc3_pm_complete(&dwc);
+        p[0].dev.refs--; p[4].dev.refs--;
+        refs(1);
+        assert(providers[0].refs==1 && providers[4].refs==1);
+    }
+    setup(1,1); dev.suspended=true; dev.result=-EIO;
+    assert(dwc3_pm_prepare(&dwc)==-EIO && dev.suspended);
+    setup(0,0); dwc.current_dr_role=DWC3_GCTL_PRTCAP_DEVICE; dev.suspended=true;
+    assert(dwc3_pm_prepare(&dwc)==1 && dev.suspended && !dev.resume_calls);
+    dev.pinctrl=true; assert(!dwc3_pm_prepare(&dwc) && dev.suspended);
+}
+'''
+glue = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <errno.h>
+struct dwc3 { int unused; };
+struct dwc3_qcom { struct dwc3 dwc; bool pm_suspended; };
+struct device { struct dwc3 *dwc; bool wake; };
+static int glue_error, core_error, core_calls;
+static struct dwc3 *dev_get_drvdata(struct device *d) { return d->dwc; }
+static struct dwc3_qcom *to_dwc3_qcom(struct dwc3 *d) { return (struct dwc3_qcom *)d; }
+static bool device_may_wakeup(struct device *d) { return d->wake; }
+static int dwc3_qcom_resume(struct dwc3_qcom *q, bool wake) { (void)q; assert(wake); return glue_error; }
+static int dwc3_pm_resume(struct dwc3 *d) { (void)d; core_calls++; return core_error; }
+'''
+glue += function(glue_source, 'dwc3_qcom_pm_resume') + r'''
+int main(void) {
+    struct dwc3_qcom q={.pm_suspended=true};
+    struct device d={.dwc=&q.dwc,.wake=true};
+    glue_error=-EIO;
+    assert(dwc3_qcom_pm_resume(&d)==-EIO && q.pm_suspended && !core_calls);
+    glue_error=0; core_error=-EHOSTDOWN;
+    assert(dwc3_qcom_pm_resume(&d)==-EHOSTDOWN && q.pm_suspended && core_calls==1);
+    core_error=0;
+    assert(!dwc3_qcom_pm_resume(&d) && !q.pm_suspended && core_calls==2);
 }
 '''
 with tempfile.TemporaryDirectory() as directory:
     root = Path(directory)
-    for name, code in (('ownership', roots), ('resume', resume)):
+    for name, code in (('ownership', roots), ('resume', resume), ('glue', glue)):
         path = root / f'{name}.c'
         path.write_text(code)
         subprocess.run(['cc', '-std=gnu11', '-Wall', '-Wextra', '-Werror', str(path), '-o', str(root / name)], check=True)

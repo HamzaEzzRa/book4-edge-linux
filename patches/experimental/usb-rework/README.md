@@ -1,23 +1,28 @@
 # USB ownership and local resume-error rework
 
-- Status: empty-port boot and normal core-callback/recovery checks passed, experimental
+- 0001–0002: empty-port boot, keyboard callbacks and empty-port real suspend/recovery passed
+- 0003: source/native and cached full-kernel build passed, staged, manual boot pending
 - Base: `2685c75587ff`, maintained 0001–0006 and experimental clock/domain composition
 - Historical USB 0007–0010: excluded, unchanged under `../usb/`
-- Scope: consumer ownership and reported DWC3 resume errors, no PHY clock gating
+- Scope: consumer ownership, reported provider/core resume errors and host runtime/system transitions
+- PHY clock gating: absent
 - Running kernel: ownership/local-error candidate with clock/domain composition
 - Modules, initramfs, fallback/default and USB policies: unchanged
-- Test entry only: `Arch Linux (PM test, USB ownership)`
+- Test entry only: `Arch Linux (PM test, USB supplier guards)`
 
 | Patch | Scope |
 |---|---|
 | 0001 | DWC3 owns generic-PHY lifetime through a software property, root-hub mode/calibration/notifications retained |
 | 0002 | PHY gets before host register access, balanced error unwind, xHCI and completion guards after failed DWC3 core resume |
+| 0003 | Explicit provider resume, host runtime-resume preparation, failed-resume runtime and Qualcomm IRQ guards |
 
-## Checks
+## Behavior check
 
 ```sh
-python3 scripts/test-usb-pm-rework.py /path/to/kernel-with-rework
+python3 scripts/test-usb-pm-rework.py /path/to/kernel-with-all-three-patches
 ```
+
+## Ownership kernel checks, 0001–0002
 
 - Extracted root-hub and DWC3 helpers, actual generic-PHY get/put wrappers
 - Parent-owned and ordinary root hubs, wake/no-wake paths, mode fallback and `HOST_SS`
@@ -44,7 +49,27 @@ python3 scripts/test-usb-pm-rework.py /path/to/kernel-with-rework
 - Recovery: original policies, single PHY references, camera, generic crypto, QCE/ICC and Wi-Fi passed
 - Final cached clocks/RPMh requests: unchanged from the preceding QCE-loaded core diagnostic
 - Capture checkers: 21 existing controls, 20 USB violations rejected, unchanged-input replay passed
-- Hardware fault injection, peripherals, wake, real sleep and energy: pending
+- USB-A keyboard: enumeration, bindings and static capabilities preserved through callbacks, no typing or wake test
+- Empty-port real sleep: 707.982 s APSS, recovery passed, loaded stock QCE retained DDR vote
+- Hardware fault injection, peripheral wake, SuperSpeed/DisplayPort and energy: pending
+
+## Supplier guard checks, 0003
+
+- Genuine prior coverage gaps: active PHY hiding provider failure, host runtime/system transitions, glue failure guard
+- Original helper: register-access assertion failed with a suspended provider and runtime-active PHY child
+- Candidate: explicit provider resume before core restore, no extra reference ownership
+- PM prepare references: retained until completion, supplier ordering traced in the PM core
+- Failed provider resume: no core register access, runtime/xHCI/completion guards retained
+- Qualcomm wake-IRQ guard: retained until core resume succeeds
+- Host prepare: resume before system suspend, positive runtime return normalized to zero
+- Modeled provider failures, disabled providers, callback retry and 100 mixed-transition cycles passed
+- Four unsafe variants rejected by native behavior assertions
+- Native ARM64 control/candidate objects and cached full-kernel link passed
+- 4,464 linked inputs: only `dwc3/core.o` and `dwc3/dwc3-qcom.o` changed
+- 26,955 headers, configuration, exports and DWC3 layout unchanged
+- No hardware fault injection or full PM-engine simulation
+- Build battery: 33% → 32%, four jobs, 30%/invalid-telemetry guard not triggered
+- Boot, callbacks and peripheral recovery: pending
 
 ## Gating blockers
 
@@ -52,8 +77,10 @@ python3 scripts/test-usb-pm-rework.py /path/to/kernel-with-rework
 - System prepare: temporary child reference can preserve that active state
 - Runtime-PM-disabled PHY: `-ENOTSUPP`, no provider resume attempt
 - Extracted-branch counterexample: failed provider, active child returns 1, zero parent resume attempts
-- New guards: reported DWC3 callback status, not independent PHY supplier readiness
-- Required before PHY clock gating: supplier-readiness/error handling, mode-aware wake handling and mixed runtime/system transition coverage
+- 0003: reported runtime-PM provider errors checked independently of active PHY children
+- Runtime-PM-disabled PHYs: skipped, no new gating authorized for those providers
+- Required before PHY clock gating: hardware validation, mode-aware wake handling, HS-PHY L2 readiness and suspend-failure unwind
+- QMP combo: shared USB/DisplayPort lifetime and non-DWC3 consumers require coverage
 - No global PHY-core changes, forced references, wake-policy changes or hibernation callback expansion
 - First hardware stage: ownership/local-error rework only, original PHY drivers and `power/control=on`
 
@@ -72,4 +99,11 @@ python3 scripts/test-usb-pm-rework.py /path/to/kernel-with-rework
 - Entry delta: title and kernel path only, existing default/fallback and historical payloads retained
 - Boot/core evidence: `/var/log/book4-usb-owner-boot.qvP15L/`
 - Native observer: private-layout and live module-note checks, cached fields only
-- Next input: connect a USB mouse or keyboard to USB-A, no reboot or real sleep scheduled
+- Keyboard callbacks: `/var/log/book4-usb-keyboard.oNKD5Q/`
+- Ownership real sleep: `/var/log/book4-suspend-usbowner.IrE7zZ/`
+- Supplier source/native work: `/var/log/book4-usb-supplier.jAjBST/`
+- Supplier build/publication: `/var/log/book4-usb-supplier-build.NK37ym/`
+- Supplier source tree: `/home/hamza/Projects/linux-book4-usb-supplier`
+- Staged EFI: `/boot/vmlinuz-book4-usbguard.efi`
+- Staged build ID: `a2049bc6b325058edb90198ca657ecfa8ced1aca`
+- Next input: manual test-entry boot, no reboot or real sleep scheduled

@@ -1,0 +1,108 @@
+Subject: [PATCH] crypto: qce: release idle system-sleep bandwidth
+
+- Existing queue mutex: serialize request admission and suspend
+- Active or queued requests: reject suspend without dropping bandwidth
+- Idle suspend: zero bandwidth with algorithms registered and QCE bound
+- Resume: restore bandwidth before accepting requests
+- Reported restoration failure: keep requests blocked until successful retry
+- Clocks, runtime PM and hibernation callbacks unchanged
+- Experimental: native build and callback diagnostic passed
+- Explicit cbc-aes-qce known answer passed before and after callbacks
+- Real-sleep and energy validation pending
+
+--- a/drivers/crypto/qce/core.h
++++ b/drivers/crypto/qce/core.h
+@@ -14,10 +14,11 @@
+ /**
+  * struct qce_device - crypto engine device structure
+  * @queue: crypto request queue
+- * @lock: the lock protects queue and req
++ * @lock: protects queue, req and suspended
+  * @done_work: workqueue context
+  * @req: current active request
+  * @result: result of current transform
++ * @suspended: requests blocked during sleep or failed bandwidth restoration
+  * @base: virtual IO base
+  * @dev: pointer to device structure
+  * @core: core device clock
+@@ -35,6 +36,7 @@
+ 	struct work_struct done_work;
+ 	struct crypto_async_request *req;
+ 	int result;
++	bool suspended;
+ 	void __iomem *base;
+ 	struct device *dev;
+ 	struct clk *core, *iface, *bus;
+--- a/drivers/crypto/qce/core.c
++++ b/drivers/crypto/qce/core.c
+@@ -11,6 +11,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
++#include <linux/pm.h>
+ #include <linux/types.h>
+ #include <crypto/algapi.h>
+ #include <crypto/internal/hash.h>
+@@ -90,6 +91,9 @@
+ 	int ret = 0, err;
+ 
+ 	scoped_guard(mutex, &qce->lock) {
++		if (qce->suspended)
++			return -ESHUTDOWN;
++
+ 		if (req)
+ 			ret = crypto_enqueue_request(&qce->queue, req);
+ 
+@@ -247,6 +251,44 @@
+ 	return devm_qce_register_algs(qce);
+ }
+ 
++static int __maybe_unused qce_suspend(struct device *dev)
++{
++	struct qce_device *qce = dev_get_drvdata(dev);
++	int ret;
++
++	guard(mutex)(&qce->lock);
++	if (qce->suspended)
++		return 0;
++	if (qce->req || crypto_queue_len(&qce->queue))
++		return -EBUSY;
++
++	qce->suspended = true;
++	ret = icc_set_bw(qce->mem_path, 0, 0);
++	if (ret && !icc_set_bw(qce->mem_path, QCE_DEFAULT_MEM_BANDWIDTH,
++			      QCE_DEFAULT_MEM_BANDWIDTH))
++		qce->suspended = false;
++
++	return ret;
++}
++
++static int __maybe_unused qce_resume(struct device *dev)
++{
++	struct qce_device *qce = dev_get_drvdata(dev);
++	int ret;
++
++	guard(mutex)(&qce->lock);
++	ret = icc_set_bw(qce->mem_path, QCE_DEFAULT_MEM_BANDWIDTH,
++			 QCE_DEFAULT_MEM_BANDWIDTH);
++	qce->suspended = !!ret;
++
++	return ret;
++}
++
++static const struct dev_pm_ops qce_pm_ops = {
++	.suspend = pm_sleep_ptr(qce_suspend),
++	.resume = pm_sleep_ptr(qce_resume),
++};
++
+ static const struct of_device_id qce_crypto_of_match[] = {
+ 	{ .compatible = "qcom,crypto-v5.1", },
+ 	{ .compatible = "qcom,crypto-v5.4", },
+@@ -260,6 +302,7 @@
+ 	.driver = {
+ 		.name = KBUILD_MODNAME,
+ 		.of_match_table = qce_crypto_of_match,
++		.pm = pm_sleep_ptr(&qce_pm_ops),
+ 	},
+ };
+ module_platform_driver(qce_crypto_driver);
