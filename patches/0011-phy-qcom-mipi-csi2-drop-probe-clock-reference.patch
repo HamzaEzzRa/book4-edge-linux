@@ -1,5 +1,5 @@
 From: hamza <hamza@book4>
-Subject: [PATCH 6/6] phy: qcom-mipi-csi2: drop unbalanced probe clock enable
+Subject: [PATCH] phy: qcom-mipi-csi2: drop unbalanced probe clock enable
 
 The probe function prepares and enables every PHY clock, but never drops
 that reference, either after registration or on subsequent probe failures.

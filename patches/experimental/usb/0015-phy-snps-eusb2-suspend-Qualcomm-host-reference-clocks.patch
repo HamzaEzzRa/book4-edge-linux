@@ -1,5 +1,5 @@
 From: hamza <hamza@book4>
-Subject: [PATCH 10/10] phy: snps-eusb2: suspend Qualcomm host reference clocks
+Subject: [PATCH] phy: snps-eusb2: suspend Qualcomm host reference clocks
 
 - Remaining USB2 reference gates: keep the Linux XO sleep request enabled
 - Qualcomm host bus-suspend reference: downstream msm_eusb2_phy_set_suspend()

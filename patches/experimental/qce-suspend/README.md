@@ -1,6 +1,6 @@
 # QCE system-sleep bandwidth candidate
 
-- Experimental, excluded from maintained patches 0001–0006
+- Experimental, excluded from maintained patches 0001–0003, 0014–0011
 - Bound QCE: idle queue required before releasing the DDR vote
 - Resume or suspend rollback: bandwidth restored before request admission
 - Clocks, runtime PM, hibernation and installed modules unchanged

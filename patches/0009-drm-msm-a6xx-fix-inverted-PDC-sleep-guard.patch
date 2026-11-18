@@ -1,5 +1,5 @@
 From: hamza <hamza@book4>
-Subject: [PATCH 4/6] drm/msm/a6xx: fix inverted PDC sleep guard
+Subject: [PATCH] drm/msm/a6xx: fix inverted PDC sleep guard
 
 GMU_STATUS_FW_START records that firmware has initialized the registers
 needed for the PDC sleep sequence. Return when that flag is absent, not

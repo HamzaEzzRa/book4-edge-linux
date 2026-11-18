@@ -7,10 +7,10 @@
 
 | Patch | Remaining blocker |
 |---|---|
-| 0007 | Global removal of root-hub hooks, calibration and `HOST_SS` mode propagation |
-| 0008 | Four drivers changed, only combo deployed, probe-failure and DisplayPort coverage incomplete |
-| 0009 | Hibernation callbacks absent, DisplayPort and peripheral wake unverified |
-| 0010 | `HOST_SS` excluded, unlocked `init_count`, consumers can resume after clock-enable failure |
+| 0012 | Global removal of root-hub hooks, calibration and `HOST_SS` mode propagation |
+| 0013 | Four drivers changed, only combo deployed, probe-failure and DisplayPort coverage incomplete |
+| 0014 | Hibernation callbacks absent, DisplayPort and peripheral wake unverified |
+| 0015 | `HOST_SS` excluded, unlocked `init_count`, consumers can resume after clock-enable failure |
 
 - DWC3 `dwc3_resume_common()`: ignored `phy_pm_runtime_get_sync()` results, register access before PHY runtime gets
 - PM core: supplier resume errors do not automatically block consumers
@@ -18,4 +18,4 @@
 - Partial rework: [ownership and local-error candidate](../usb-rework/README.md), empty-port boot/core/recovery passed, peripheral/wake pending, no PHY clock gating
 - Additional blocker: runtime-active PHY child can hide failed provider resume, get-result checking alone insufficient
 - No blind `SYSTEM_SLEEP_PM_OPS()` substitution: additional hibernation behavior
-- Maintained baseline: patches 0001–0006, original USB drivers, native PCIe PM
+- Maintained baseline: patches 0001–0003, 0014–0011, original USB drivers, native PCIe PM

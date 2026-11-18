@@ -2,8 +2,8 @@
 
 - 0001–0002: empty-port boot, keyboard callbacks and empty-port real suspend/recovery passed
 - 0003: boot, normal callbacks and USB-A runtime → system-suspend callbacks passed
-- Base: `2685c75587ff`, maintained 0001–0006 and experimental clock/domain composition
-- Historical USB 0007–0010: excluded, unchanged under `../usb/`
+- Base: `2685c75587ff`, maintained 0001–0003, 0014–0011 and experimental clock/domain composition
+- Historical USB 0012–0015: excluded, unchanged under `../usb/`
 - Scope: consumer ownership, reported provider/core resume errors and host runtime/system transitions
 - PHY clock gating: absent
 - Running kernel: supplier-guard candidate with clock/domain composition

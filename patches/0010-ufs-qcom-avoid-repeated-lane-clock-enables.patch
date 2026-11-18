@@ -1,5 +1,5 @@
 From: hamza <hamza@book4>
-Subject: [PATCH 5/6] ufs: qcom: avoid repeated lane clock enables
+Subject: [PATCH] ufs: qcom: avoid repeated lane clock enables
 
 ufs_qcom_setup_clocks() enables the lane clocks while bringing a link out
 of Hibern8, and ufs_qcom_resume() enables them again before the link state

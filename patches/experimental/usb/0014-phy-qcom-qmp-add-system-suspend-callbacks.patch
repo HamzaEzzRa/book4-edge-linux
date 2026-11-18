@@ -1,5 +1,5 @@
 From: hamza <hamza@book4>
-Subject: [PATCH 9/9] phy: qcom-qmp: suspend USB PHYs during system sleep
+Subject: [PATCH] phy: qcom-qmp: suspend USB PHYs during system sleep
 
 - xHCI system suspend: runtime resume of the controller and PHY chain
 - PM preparation: extra usage references on providers and generic PHYs

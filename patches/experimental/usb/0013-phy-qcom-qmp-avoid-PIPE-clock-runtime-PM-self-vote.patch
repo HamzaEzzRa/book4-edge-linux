@@ -1,5 +1,5 @@
 From: hamza <hamza@book4>
-Subject: [PATCH 8/8] phy: qcom-qmp: register clocks before enabling runtime PM
+Subject: [PATCH] phy: qcom-qmp: register clocks before enabling runtime PM
 
 CCF snapshots pm_runtime_enabled() when a clock is registered and takes a
 provider runtime reference while that clock is prepared. QMP's generated

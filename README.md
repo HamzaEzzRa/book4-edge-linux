@@ -15,7 +15,7 @@
 | Display (KDB KD156N2030A03 eDP), backlight | Working, patch 0001 |
 | Boot splash | `userspace/boot-splash`, incompatible with Plymouth |
 | GPU (Adreno X1-45, freedreno/turnip) | Working, devfreq floor in `userspace/udev/90-book4-gpu-floor.rules` |
-| Keyboard, touchpad | Working, tablet-misdetection workaround in `userspace/udev/61-…` |
+| Keyboard, touchpad | Working, tablet-misdetection workaround in `userspace/udev/61-…`, firmware-selected touchpad of four SKU variants enabled by patches 0007/0008, non-Zinitix units unbooted |
 | UFS storage | Working |
 | Wi-Fi (WCN7850) | Working, board file from `scripts/make-board-2.sh` |
 | Bluetooth | Working, manual address configuration |
@@ -24,6 +24,7 @@
 | Camera (OV02C10, 2 MP) | Working through libcamera, `userspace/camera` required |
 | USB-C charging | Input-limit correction in source, hardware validation pending |
 | Battery, AC, EC temperatures, fan level | `driver/samsung-galaxybook-ec` |
+| Memory under load | Freeze fixes: patch 0004, MGLRU, zram, [details](docs/memory.md), hours tested, multi-day pending |
 | Suspend | Experimental DDR low-power residency, remaining drain ~2.5 percentage points/hour, [evidence](reports/suspend-investigation.md) |
 | Hibernate | In-place `test_resume` successful, cold resume reset |
 | HDMI out, SD card, second USB2 port | Not wired / untested |
@@ -35,7 +36,7 @@
 ```sh
 git clone https://github.com/zensanp/linux-book4-edge && cd linux-book4-edge
 git checkout 2685c75587ff
-git am ../patches/*.patch                 # Maintained series 0001–0006
+git am ../patches/*.patch                 # Maintained series 0001–0011
 cp ../config/book4-edge.config .config && make olddefconfig
 make -j"$(nproc)" Image vmlinuz.efi modules dtbs
 sudo make modules_install
@@ -149,13 +150,16 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 | `driver/book4-sleep-votes/` | Version-specific cached suspend observer, private-layout check, no automatic loading |
 | `packaging/book4-pm-modules/` | Maintained UFS/CSI module overrides and initramfs preset |
 | `userspace/charging/` | S2MM006 PD and ISL9241 charging |
-| `userspace/memory/` | Half-RAM zstd zram, earlyoom, out-of-tree `zram-mod/build.sh` for kernels without ZRAM |
+| `userspace/memory/` | zstd zram sized to RAM with 16 GiB cap, earlyoom, MGLRU `mglru.conf`, THP madvise, out-of-tree `zram-mod/build.sh` for kernels without ZRAM |
 | `userspace/audio/` | Samsung ALSA UCM, four-slot FL/RL/FR/RR mapping, measured EQ/limiter, echo cancellation |
 | `userspace/camera/` | libcamera 0.7.2, OV02C10 sensor helper/tuning, CPU software ISP |
 | `userspace/boot-splash/` | DRM splash and msm modprobe gate, paired installation required |
 | `scripts/` | Firmware extraction, Wi-Fi board builder, vendored ISC `ath12k-bdencoder` from qca-swiss-army-knife |
 | `reports/` | EC/PD protocols, DSDT disassembly, panel EDID, suspend evidence |
 | `docs/camera-debugging.md` | Camera diagnostic methods |
+| `docs/memory.md` | Free-CMA counter drift, MGLRU, freeze checks |
+| `docs/touchpad-variants.md` | Four SKU touchpads, reading the fitted one |
+| `patches/running/` | Upstream running-kernel diff snapshot, reference only |
 
 ### Kernel patches
 
@@ -164,10 +168,15 @@ mkinitcpio -k <kernel version> -g /boot/initramfs-book4.img
 | 0001 | panel-edp panel entry | Working display |
 | 0002 | Board-specific front-camera HFLIP | Working camera |
 | 0003 | Board DTS, DDR-statistics QMP link | Boot and counter refresh verified |
-| 0004 | GPU power-down guard | Boot/resume verified, DDR frequency hold removed |
-| 0005 | UFS clock-reference guard | Boot/runtime-PM/callback verified, UFS sleep vote cleared, power benefit unmeasured |
-| 0006 | Camera-PHY probe reference removal | Boot and camera captures before/after real suspend verified, idle camera clocks released |
-| `patches/experimental/usb/` 0007–0010 | USB ownership and PHY PM experiments | Excluded from maintained builds, unresolved mode/wake/error propagation, [review](patches/experimental/usb/README.md) |
+| 0004 | Free-CMA counter capped at zone CMA size | Upstream: one boot, counter within pool |
+| 0005 | UFS no-timestamp quirk, THGJFJT2T85BAT0A | Upstream |
+| 0006 | One sound card name for every NP750XQA keyboard SKU | Upstream |
+| 0007 | Board code enabling the firmware-selected touchpad | Upstream: Zinitix only |
+| 0008 | DTS nodes for all four touchpads | Upstream: Zinitix only |
+| 0009 | GPU power-down guard | Boot/resume verified, DDR frequency hold removed |
+| 0010 | UFS clock-reference guard | Boot/runtime-PM/callback verified, UFS sleep vote cleared, power benefit unmeasured |
+| 0011 | Camera-PHY probe reference removal | Boot and camera captures before/after real suspend verified, idle camera clocks released |
+| `patches/experimental/usb/` 0012–0015 | USB ownership and PHY PM experiments | Excluded from maintained builds, unresolved mode/wake/error propagation, [review](patches/experimental/usb/README.md) |
 | `patches/experimental/usb-rework/` | Hook-preserving ownership and local resume-error guards | Empty-port boot/core/recovery passed, eight PHYs at 1/1, peripheral/wake tests pending, no PHY clock gating, [candidate](patches/experimental/usb-rework/README.md) |
 | `patches/experimental/clock-sync/` | Clock/domain callback composition | Boot/core/short and overnight recovery passed, energy benefit unresolved, [candidate](patches/experimental/clock-sync/README.md) |
 | `patches/debug/` | CSIPHY diagnostics | Present in verified kernel, not a fix |

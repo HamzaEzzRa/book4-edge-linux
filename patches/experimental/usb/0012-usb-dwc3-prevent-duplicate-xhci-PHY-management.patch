@@ -1,5 +1,5 @@
 From: hamza <hamza@book4>
-Subject: [PATCH 7/8] usb: dwc3: prevent duplicate xHCI PHY management
+Subject: [PATCH] usb: dwc3: prevent duplicate xHCI PHY management
 
 DWC3 initializes and powers its generic PHYs before registering the xHCI
 child. Set the existing XHCI_SKIP_PHY_INIT platform quirk so usb_add_hcd()

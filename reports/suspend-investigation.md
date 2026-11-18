@@ -2,8 +2,8 @@
 
 ## Decision
 
-- Maintained baseline: patches 0001–0006, native PCIe PM, original USB drivers
-- USB experiments 0007–0010: excluded from the maintained series and next test boot
+- Maintained baseline: patches 0001–0003, 0014–0011, native PCIe PM, original USB drivers
+- USB experiments 0012–0015: excluded from the maintained series and next test boot
 - USB blockers: [review findings](../patches/experimental/usb/README.md)
 - Hook-preserving USB ownership/local-error rework: [boot/core-validated candidate](../patches/experimental/usb-rework/README.md), peripheral/wake pending, no PHY clock gating
 - Original chronology and failures: [2026-09-20–22 archive](archive/suspend-2026-09-20-22.md)
@@ -34,13 +34,13 @@
 
 | Item | Evidence |
 |---|---|
-| GPU 0004 | Boot/resume verified, DDR frequency hold removed |
-| UFS 0005 | Runtime/callback verified, sleep request cleared |
-| CSI 0006 | Camera before/after real suspend verified, idle clocks released after CCI autosuspend |
+| GPU 0009 | Boot/resume verified, DDR frequency hold removed |
+| UFS 0010 | Runtime/callback verified, sleep request cleared |
+| CSI 0011 | Camera before/after real suspend verified, idle clocks released after CCI autosuspend |
 | Earlier overnight | QCE unloaded, 76% → 55% over 8 h 20 min, approximately 1.6 W |
 | DDR low-power residency | Approximately 97.44% of APSS sleep with GPU fix, native PCIe PM and QCE removal |
 | CX/AOSS collapse | Still absent in measured tests |
-| 0010 boot | Expected code loaded, incidental suspend/resume completed, no controlled test or promotion |
+| 0015 boot | Expected code loaded, incidental suspend/resume completed, no controlled test or promotion |
 | Source checkpoint | Observer and all experimental patches committed |
 | Maintained patch series | Six patches apply to `2685c75587ff`, GPU/UFS/CSI source matches built tree |
 | Maintained module package | Installed UFS/CSI binaries identical to previously tested binaries |
@@ -126,7 +126,7 @@
 - Preset: `/etc/mkinitcpio.d/book4-pm.preset`
 - Rebuild: `mkinitcpio -p book4-pm`
 - New image: `/boot/initramfs-book4-pm.img`
-- Kernel: existing `/boot/vmlinuz-book4-pciepm.efi`, GPU fix and native PCIe PM, no 0007
+- Kernel: existing `/boot/vmlinuz-book4-pciepm.efi`, GPU fix and native PCIe PM, no 0012
 - Existing CSI diagnostic code: retained in the tested module
 - Verified reference baseline: **Arch Linux (PM baseline, QCE probe first)**
 - Verified clock-only-change boot: **Arch Linux (PM test, no clk_ignore_unused)**
@@ -200,7 +200,7 @@
 - Candidate checks: shared driver, repeated setup, no-domain case, custom callbacks, ordering and ICC accounting
 - Seven broken variants rejected by runtime assertions
 - Native `common.o`: built against matching headers/config/compiler, exported symbol names unchanged, only new import `of_genpd_sync_state`
-- Clean tree: `/home/hamza/Projects/linux-book4-clock-sync`, maintained 0001–0006 plus candidate, original USB source
+- Clean tree: `/home/hamza/Projects/linux-book4-clock-sync`, maintained 0001–0003, 0014–0011 plus candidate, original USB source
 - Image-build proof: original control Image identical except two verified GNU build IDs, only common.o changed for candidate
 - Module compatibility basis: matching headers/config/compiler/export table and isolated source/object delta
 - `CONFIG_MODVERSIONS`: disabled, no symbol-CRC assurance or release-only claim
@@ -340,7 +340,7 @@
 - Supplier counterexample: runtime-active PHY child returns 1 before provider resume, zero parent resume attempts
 - System prepare reference: can keep PHY child active, failed supplier resume not necessarily visible through the get result
 - Runtime-PM-disabled PHY: `-ENOTSUPP`, no supplier-readiness guarantee
-- Scope limit: reported DWC3 callback errors only, not permission to enable 0009/0010
+- Scope limit: reported DWC3 callback errors only, not permission to enable 0014/0015
 - Remaining gating work: supplier readiness, mode-aware wake, shared lifetime and mixed runtime/system transitions
 - Full link and EFI embedding: passed, cached build reused rather than a clean recompile
 - Control Image: equivalent to previous clock-only candidate except verified kernel and vDSO GNU build IDs

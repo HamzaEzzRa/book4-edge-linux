@@ -1,12 +1,12 @@
 # Maintained Book4 test modules
 
 - Target: `7.2.0-book4-pciepm`, existing GPU-fixed/native-PCIe kernel
-- Scope: UFS 0005 and CSI 0006 modules, initramfs config, preset and package-update hook
-- Prerequisite: matching configured and fully built kernel source with patches 0001–0006
+- Scope: UFS 0010 and CSI 0011 modules, initramfs config, preset and package-update hook
+- Prerequisite: matching configured and fully built kernel source with patches 0001–0011
 - PCIe config: `config/pcie-pm-test.config`, exact compiler/config compatibility required
 - Current tested CSI module: existing CSIPHY diagnostic patch retained
 - Full kernel/DTB packaging: not included
-- USB experiments 0007–0010: not installed
+- USB experiments 0012–0015: not installed
 - Build from this repository, normal user
 
 ```sh

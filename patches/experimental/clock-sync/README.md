@@ -1,6 +1,6 @@
 # Clock/domain synchronization candidate
 
-- Status: boot/core/short and overnight recovery verified, energy benefit unresolved, excluded from maintained patches 0001–0006
+- Status: boot/core/short and overnight recovery verified, energy benefit unresolved, excluded from maintained patches 0001–0003, 0014–0011
 - Base: `2685c75587ff`, shared `drivers/clk/qcom/common.c`
 - Source-regression evidence: `/var/log/book4-clock-sync-fix.3Q99z4/`
 - Image-build and publication evidence: `/var/log/book4-clock-kernel.KFFCOc/`
@@ -50,7 +50,7 @@ python3 scripts/test-qcom-cc-sync.py /path/to/patched/kernel
 
 ## Image validation
 
-- Maintained 0001–0006 plus this candidate, original USB source
+- Maintained 0001–0003, 0014–0011 plus this candidate, original USB source
 - Clean control Image: identical to original apart from kernel and embedded-vDSO GNU build IDs
 - Metadata reproduction: original weak banner and empty built-in archive timestamps
 - Original one-ID comparison failure: retained, separate two-ID checker with code-byte and malformed-note rejection
