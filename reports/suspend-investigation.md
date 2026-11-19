@@ -7,7 +7,7 @@
 - USB blockers: [review findings](../patches/experimental/usb/README.md)
 - Hook-preserving USB ownership/local-error rework: [boot/core-validated candidate](../patches/experimental/usb-rework/README.md), peripheral/wake pending, no PHY clock gating
 - Original chronology and failures: [2026-09-20–22 archive](archive/suspend-2026-09-20-22.md)
-- Checkpoint including observer: `74f1210`
+- Checkpoint including observer: `b7a98ce`
 - Deployment evidence: `/var/log/book4-review-fixes.5t5Ufq/`
 - Rejected blacklist baseline: `/var/log/book4-pm-baseline.PfGPx7/`
 - Probe-first baseline: `/var/log/book4-qce-probe.9e24x1/`
